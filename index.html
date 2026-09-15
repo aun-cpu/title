@@ -96,12 +96,14 @@
         width: 100%;
         height: 100%;
         z-index: 50;
-        background: rgba(0, 0, 0, 0.55);
+        background: transparent;
         display: flex;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-end;
+        padding-right: 40px;
         transition: opacity 0.5s ease;
         opacity: 1;
+        pointer-events: none;
     }
     #start-screen.is-hidden {
         opacity: 0;
@@ -121,6 +123,7 @@
         cursor: pointer;
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
+        pointer-events: auto;
     }
     #start-button:active {
         background: rgba(230, 230, 230, 0.95);
@@ -537,7 +540,10 @@
             './ct1.glb',
             function (gltf) {
                 targetModel = gltf.scene;
-                targetModel.rotation.y = Math.PI + initialLeftYawOffset;
+                // 90度回転させたカメラ視点で見て右側にct・カメラを配置する
+                targetModel.position.x += 2;
+                // カメラの方（こちら側）を向かせる
+                targetModel.rotation.y = initialLeftYawOffset;
                 targetModel.traverse((child) => {
                     if (!child.isMesh) return;
                     const materials = Array.isArray(child.material) ? child.material : [child.material];
