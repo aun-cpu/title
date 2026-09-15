@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+    <title>3D GLB Viewer - Move & Camera Only</title>
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    body {
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        background-color: #1a1a1a;
+        touch-action: none;
+    }
+    /* ============================================================
+       スマホを縦のまま持った状態で、画面表示だけを横向きにする
+       ============================================================ */
+    #app-stage {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        transform-origin: left top;
+        z-index: 1;
+    }
+    body.force-rotate #app-stage {
+        top: 0;
+        left: 100%;
+        width: 100vh;
+        height: 100vw;
+        transform: rotate(90deg);
+    }
+    #canvas-container {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 1;
+    }
+    #loading-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1000;
+        background-color: #1a1208;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        transition: opacity 0.7s ease;
+        opacity: 1;
+    }
+    #loading-screen.is-hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+    #loading-progress {
+        position: absolute;
+        bottom: 8%;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        color: #fff;
+        font-family: sans-serif;
+        font-size: 14px;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+        z-index: 1001;
+    }
+    #loading-screen img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        image-rendering: pixelated;
+        image-rendering: -moz-crisp-edges;
+        image-rendering: crisp-edges;
+        animation: loadingPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes loadingPulse {
+        0%, 100% {
+            filter: brightness(1);
+        }
+        50% {
+            filter: brightness(1.08);
+        }
+    }
+    #canvas-container canvas {
+        image-rendering: pixelated;
+        image-rendering: -moz-crisp-edges;
+        image-rendering: crisp-edges;
+    }
+    #joystick-container {
+        position: absolute;
+        left: 30px;
+        bottom: 30px;
+        width: 150px;
+        height: 150px;
+        z-index: 20;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+    #joystick-base {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.15);
+        border: 2px solid rgba(255, 255, 255, 0.35);
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+    #joystick-stick {
+        position: absolute;
+        left: 52px;
+        top: 52px;
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.45);
+        border: 2px solid rgba(255, 255, 255, 0.65);
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        pointer-events: none;
+        transform: translate(0px, 0px);
+    }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+<div id="app-stage">
+    <div id="loading-screen">
+        <img src="./loading.jpg" alt="Loading...">
+        <div id="loading-progress">0%</div>
+    </div>
+    <div id="canvas-container"></div>
+    <div id="joystick-container">
+        <div id="joystick-base"></div>
+        <div id="joystick-stick"></div>
+    </div>
+</div>
+<script>
+    // ============================================================
+    // 画面の向き制御（スマホは縦持ちのまま、表示だけを横向きにする）
+    // ============================================================
+    function isPortraitDevice() {
+        return window.innerWidth < window.innerHeight;
+    }
+    function getLogicalWidth() {
+        return isPortraitDevice()
+            ? window.innerHeight
+            : window.innerWidth;
+    }
+    function getLogicalHeight() {
+        return isPortraitDevice()
+            ? window.innerWidth
+            : window.innerHeight;
+    }
+    function getLogicalX(clientX, clientY) {
+        return isPortraitDevice() ? clientY : clientX;
+    }
+    function getLogicalY(clientX, clientY) {
+        return isPortraitDevice()
+            ? window.innerWidth - clientX
+            : clientY;
+    }
+    function updateForceRotateClass() {
+        if (isPortraitDevice()) {
+            document.body.classList.add('force-rotate');
+        } else {
+            document.body.classList.remove('force-rotate');
+        }
+    }
+    updateForceRotateClass();
+    // ============================================================
+    // Three.js 基本設定
+    // ============================================================
+    const scene = new THREE.Scene();
+    const bgGroup = new THREE.Group();
+    scene.add(bgGroup);
+    const camera = new THREE.PerspectiveCamera(
+        75,
+        getLogicalWidth() / getLogicalHeight(),
+        0.1,
+        1000
+    );
+    const renderer = new THREE.WebGLRenderer({
+        antialias: false,
+        powerPreference: 'default',
+        failIfMajorPerformanceCaveat: false,
+        preserveDrawingBuffer: false
+    });
+    // ============================================================
+    // ピクセルアート風レンダリング
+    // ============================================================
+    const pixelationScale = 1.7;
+    let posterizeCanvas = null;
+    let posterizeCtx = null;
+
+    function applyPixelatedRendererSize() {
+        const displayWidth = getLogicalWidth();
+        const displayHeight = getLogicalHeight();
+        const lowResWidth = Math.max(1, Math.floor(displayWidth / pixelationScale));
+        const lowResHeight = Math.max(1, Math.floor(displayHeight / pixelationScale));
+
+        renderer.setPixelRatio(1);
+        renderer.setSize(lowResWidth, lowResHeight, false);
+
+        if (!posterizeCanvas) {
+            posterizeCanvas = document.createElement('canvas');
+            posterizeCanvas.style.imageRendering = 'pixelated';
+            posterizeCanvas.style.position = 'absolute';
+            posterizeCanvas.style.top = '0';
+            posterizeCanvas.style.left = '0';
+            posterizeCtx = posterizeCanvas.getContext('2d', { alpha: false });
+            if (!posterizeCtx) {
+                console.warn('2D canvas context could not be created.');
+                return;
+            }
+            posterizeCtx.imageSmoothingEnabled = false;
+            document.getElementById('canvas-container').appendChild(posterizeCanvas);
+        }
+
+        posterizeCanvas.width = lowResWidth;
+        posterizeCanvas.height = lowResHeight;
+        posterizeCanvas.style.width = displayWidth + 'px';
+        posterizeCanvas.style.height = displayHeight + 'px';
+        posterizeCanvas.style.filter = 'contrast(1.15) saturate(1.3)';
+    }
+    applyPixelatedRendererSize();
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.95;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    const cappedAnisotropy = Math.min(
+        4,
+        renderer.capabilities.getMaxAnisotropy()
+    );
+
+    // ============================================================
+    // 地面当たり判定（Raycaster）
+    // ============================================================
+    const groundRaycaster = new THREE.Raycaster();
+    const groundRayDirection = new THREE.Vector3(0, -1, 0);
+    const groundRayOrigin = new THREE.Vector3();
+    const groundOffset = 0.0;
+    const terrainProbeHeight = 20.0;
+    const maxStepHeight = 0.5;
+    const maxWalkableSlopeAngle = THREE.MathUtils.degToRad(50);
+    const upVector = new THREE.Vector3(0, 1, 0);
+
+    function probeGroundHeight(x, z, referenceY) {
+        if (!bgGroup || bgGroup.children.length === 0) return null;
+        groundRayOrigin.set(
+            x,
+            referenceY + terrainProbeHeight,
+            z
+        );
+        groundRaycaster.set(
+            groundRayOrigin,
+            groundRayDirection
+        );
+        const hits = groundRaycaster.intersectObject(bgGroup, true);
+        return hits.length > 0 ? hits[0] : null;
+    }
+
+    function isTooSteep(hit) {
+        if (!hit || !hit.face) return false;
+        const worldNormal = hit.face.normal
+            .clone()
+            .transformDirection(hit.object.matrixWorld);
+        const slopeAngle = worldNormal.angleTo(upVector);
+        return slopeAngle > maxWalkableSlopeAngle;
+    }
+
+    function updateGroundCollision() {
+        if (!targetModel || !bgGroup || bgGroup.children.length === 0) {
+            return;
+        }
+        const hit = probeGroundHeight(
+            targetModel.position.x,
+            targetModel.position.z,
+            targetModel.position.y
+        );
+        if (!hit) return;
+        if (isTooSteep(hit)) return;
+        targetModel.position.y = hit.point.y + groundOffset;
+    }
+    // ============================================================
+    // ズーム無効化（ダブルタップ／ピンチ）
+    // ============================================================
+    let lastTouchEndTime = 0;
+    document.addEventListener(
+        'touchend',
+        function (e) {
+            const now = Date.now();
+            if (now - lastTouchEndTime <= 350) {
+                e.preventDefault();
+            }
+            lastTouchEndTime = now;
+        },
+        { passive: false }
+    );
+    document.addEventListener('dblclick', function (e) { e.preventDefault(); }, { passive: false });
+    document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+    document.addEventListener('gesturechange', function (e) { e.preventDefault(); });
+    document.addEventListener('gestureend', function (e) { e.preventDefault(); });
+    document.addEventListener(
+        'touchmove',
+        function (e) {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        },
+        { passive: false }
+    );
+    // ============================================================
+    // WebGLコンテキストロスト対策
+    // ============================================================
+    let isRendererContextLost = false;
+    renderer.domElement.addEventListener(
+        'webglcontextlost',
+        function (e) {
+            e.preventDefault();
+            isRendererContextLost = true;
+            console.warn('WebGLコンテキストが失われました。復帰を待機します。');
+        },
+        false
+    );
+    renderer.domElement.addEventListener(
+        'webglcontextrestored',
+        function () {
+            isRendererContextLost = false;
+            if (typeof clock !== 'undefined') {
+                clock.getDelta();
+            }
+            console.info('WebGLコンテキストが復帰しました。');
+        },
+        false
+    );
+    // ============================================================
+    // ライト
+    // ============================================================
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 2.6);
+    dirLight.position.set(5, 10, 7.5);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 1024;
+    dirLight.shadow.mapSize.height = 1024;
+    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.camera.far = 50;
+    dirLight.shadow.camera.left = -15;
+    dirLight.shadow.camera.right = 15;
+    dirLight.shadow.camera.top = 15;
+    dirLight.shadow.camera.bottom = -15;
+    dirLight.shadow.bias = -0.0005;
+    scene.add(dirLight);
+    const fillLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    fillLight.position.set(-5, 5, -7);
+    scene.add(fillLight);
+    // ============================================================
+    // 環境マップ
+    // ============================================================
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    const environmentScene = new THREE.Scene();
+    environmentScene.background = new THREE.Color(0x202020);
+    const environmentLight = new THREE.HemisphereLight(0xffffff, 0x222222, 2);
+    environmentScene.add(environmentLight);
+    const environmentTarget = pmremGenerator.fromScene(environmentScene);
+    scene.environment = environmentTarget.texture;
+    // ============================================================
+    // カメラ設定
+    // ============================================================
+    const targetHeightOffset = 1.5;
+    const cameraDistance = 1.6;
+    let cameraSpherical = new THREE.Spherical(cameraDistance, Math.PI / 2.2, 0);
+    const minPolarAngle = 0.1;
+    const maxPolarAngle = Math.PI / 2 - 0.05;
+    // ============================================================
+    // モデル・アニメーション（ct1）
+    // ============================================================
+    let targetModel = null;
+    let bgModel = null;
+    let mixer = null;
+    let actions = {};
+    let currentAction = null;
+    const animationFPS = 30;
+    const clock = new THREE.Clock();
+    // ============================================================
+    // 移動・カメラ設定
+    // ============================================================
+    const maxMoveSpeed = 4.0;
+    const rotationSpeed = 10.0;
+    const cameraTouchSensitivity = 0.005;
+    // ============================================================
+    // GLTF Loader
+    // ============================================================
+    const loader = new THREE.GLTFLoader();
+    // ============================================================
+    // ロード画面（bgti1.glb / ct1.glb の2つが揃ったら非表示にする）
+    // ============================================================
+    const loadingScreenElement = document.getElementById('loading-screen');
+    const totalAssetsToLoad = 2; // bgti1 + ct1
+    let loadedAssetCount = 0;
+    let loadingScreenHidden = false;
+    const loadingProgressElement = document.getElementById('loading-progress');
+
+    function markAssetLoaded() {
+        loadedAssetCount++;
+
+        if (loadingProgressElement) {
+            const percent = Math.round((loadedAssetCount / totalAssetsToLoad) * 100);
+            loadingProgressElement.textContent = percent + '%';
+        }
+
+        if (loadedAssetCount >= totalAssetsToLoad && !loadingScreenHidden) {
+            loadingScreenHidden = true;
+            if (loadingScreenElement) {
+                loadingScreenElement.classList.add('is-hidden');
+                setTimeout(() => {
+                    if (loadingScreenElement.parentNode) {
+                        loadingScreenElement.parentNode.removeChild(loadingScreenElement);
+                    }
+                }, 800);
+            }
+        }
+    }
+    // ============================================================
+    // ロード画面のフォールバック
+    // ============================================================
+    const LOADING_FALLBACK_TIMEOUT_MS = 20000;
+    setTimeout(() => {
+        if (!loadingScreenHidden) {
+            console.warn('ロードがタイムアウトしました。強制的にローディング画面を閉じます。');
+            loadingScreenHidden = true;
+            if (loadingScreenElement) {
+                loadingScreenElement.classList.add('is-hidden');
+                setTimeout(() => {
+                    if (loadingScreenElement.parentNode) {
+                        loadingScreenElement.parentNode.removeChild(loadingScreenElement);
+                    }
+                }, 800);
+            }
+        }
+    }, LOADING_FALLBACK_TIMEOUT_MS);
+    // ============================================================
+    // bgti1.glb（背景）の読み込み
+    // ============================================================
+    function setupBgMaterials(bgScene) {
+        bgScene.traverse((child) => {
+            if (!child.isMesh) return;
+            const oldMaterial = child.material;
+            const materials = Array.isArray(oldMaterial) ? oldMaterial : [oldMaterial];
+            const newMaterials = materials.map((material) => {
+                if (material.map) {
+                    material.map.encoding = THREE.sRGBEncoding;
+                    material.map.anisotropy = cappedAnisotropy;
+                    material.map.needsUpdate = true;
+                }
+                return new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
+                    wireframe: false,
+                    transparent: true,
+                    opacity: 0.99,
+                    map: material.map || null,
+                    vertexColors: material.vertexColors
+                });
+            });
+            child.material = Array.isArray(oldMaterial) ? newMaterials : newMaterials[0];
+            child.receiveShadow = true;
+            child.frustumCulled = true;
+            if (child.geometry) {
+                if (!child.geometry.boundingSphere) {
+                    child.geometry.computeBoundingSphere();
+                }
+                if (!child.geometry.boundingBox) {
+                    child.geometry.computeBoundingBox();
+                }
+            }
+        });
+    }
+
+    function loadBgModel() {
+        loader.load(
+            './bgti1.glb',
+            function (gltf) {
+                try {
+                    const partScene = gltf.scene;
+                    partScene.scale.set(1, 1, 1);
+                    setupBgMaterials(partScene);
+                    bgGroup.add(partScene);
+                    registerBgCullingPart(partScene);
+                } catch (setupError) {
+                    console.error('bgti1.glb のセットアップエラー:', setupError);
+                }
+                bgModel = bgGroup;
+                markAssetLoaded();
+                loadCt1Model();
+            },
+            undefined,
+            function (error) {
+                console.error('bgti1.glb の読み込みエラー:', error);
+                markAssetLoaded();
+                loadCt1Model();
+            }
+        );
+    }
+    loadBgModel();
+    // ============================================================
+    // 背景パーツの視錐台カリング（見えていない部分を描画しない）
+    // ============================================================
+    const bgCullingParts = [];
+    const bgCullingFrustum = new THREE.Frustum();
+    const bgCullingProjScreenMatrix = new THREE.Matrix4();
+    const bgCullingMargin = 2.0;
+
+    function registerBgCullingPart(partScene) {
+        const box = new THREE.Box3().setFromObject(partScene);
+        if (box.isEmpty()) return;
+        const sphere = new THREE.Sphere();
+        box.getBoundingSphere(sphere);
+        sphere.radius += bgCullingMargin;
+        bgCullingParts.push({
+            object: partScene,
+            sphere: sphere
+        });
+    }
+
+    function updateBgFrustumCulling() {
+        if (bgCullingParts.length === 0) return;
+        bgCullingProjScreenMatrix.multiplyMatrices(
+            camera.projectionMatrix,
+            camera.matrixWorldInverse
+        );
+        bgCullingFrustum.setFromProjectionMatrix(bgCullingProjScreenMatrix);
+        for (let i = 0; i < bgCullingParts.length; i++) {
+            const part = bgCullingParts[i];
+            part.object.visible = bgCullingFrustum.intersectsSphere(part.sphere);
+        }
+    }
+    // ============================================================
+    // ct1.glb（背景の読み込み完了後に開始する）
+    // ============================================================
+    function loadCt1Model() {
+        loader.load(
+            './ct1.glb',
+            function (gltf) {
+                targetModel = gltf.scene;
+                targetModel.rotation.y = Math.PI;
+                targetModel.traverse((child) => {
+                    if (!child.isMesh) return;
+                    const materials = Array.isArray(child.material) ? child.material : [child.material];
+                    materials.forEach((material) => {
+                        if (!material) return;
+                        if (material.color) {
+                            material.color.multiplyScalar(0.4);
+                        }
+                        material.metalness = 0.0;
+                        material.roughness = 0.95;
+                        material.envMapIntensity = 0.08;
+                        if (material.map) {
+                            material.map.encoding = THREE.sRGBEncoding;
+                            material.map.anisotropy = cappedAnisotropy;
+                            material.map.needsUpdate = true;
+                        }
+                        material.needsUpdate = true;
+                    });
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                });
+                scene.add(targetModel);
+
+                // ====================================================
+                // ct1アニメーション（idle / 歩行のみ使用）
+                // ====================================================
+                if (gltf.animations && gltf.animations.length > 0) {
+                    mixer = new THREE.AnimationMixer(targetModel);
+                    gltf.animations.forEach((clip) => {
+                        const animationName = clip.name.trim().toLowerCase();
+                        if (animationName === 'idle' || animationName === 'dash') {
+                            const action = mixer.clipAction(clip);
+                            action.setLoop(THREE.LoopRepeat, Infinity);
+                            action.clampWhenFinished = false;
+                            actions[animationName] = action;
+                        }
+                    });
+                    setAction('idle');
+                }
+
+                updateCameraPosition();
+                markAssetLoaded();
+            },
+            undefined,
+            function (error) {
+                console.error('ct1.glb の読み込みエラー:', error);
+                markAssetLoaded();
+            }
+        );
+    }
+
+    // ============================================================
+    // ct1 アニメーション切り替え
+    // ============================================================
+    function setAction(name) {
+        if (!mixer || !actions[name]) return;
+        const nextAction = actions[name];
+        if (currentAction !== nextAction) {
+            if (currentAction) {
+                currentAction.fadeOut(0.2);
+            }
+            nextAction.reset().play();
+            currentAction = nextAction;
+        }
+    }
+    // ============================================================
+    // 入力状態
+    // ============================================================
+    function hasMoveInput() {
+        return (
+            joystickX !== 0 ||
+            joystickY !== 0 ||
+            keyState.up ||
+            keyState.down ||
+            keyState.left ||
+            keyState.right
+        );
+    }
+    // ============================================================
+    // カメラ位置
+    // ============================================================
+    function updateCameraPosition() {
+        if (!targetModel) return;
+        const targetPosition = targetModel.position.clone()
+            .add(new THREE.Vector3(0, targetHeightOffset, 0));
+        const offset = new THREE.Vector3().setFromSpherical(cameraSpherical);
+        camera.position.copy(targetPosition).add(offset);
+        camera.lookAt(targetPosition);
+    }
+    // ============================================================
+    // アナログスティック
+    // ============================================================
+    const joystickContainer = document.getElementById('joystick-container');
+    const joystickStick = document.getElementById('joystick-stick');
+    let joystickPointerId = null;
+    let joystickX = 0;
+    let joystickY = 0;
+    const joystickRadius = 52;
+    const joystickDeadZone = 0.08;
+    function updateJoystick(clientX, clientY) {
+        const rect = joystickContainer.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        let dx = clientX - centerX;
+        let dy = clientY - centerY;
+        const distance = Math.hypot(dx, dy);
+        if (distance > joystickRadius) {
+            dx = dx / distance * joystickRadius;
+            dy = dy / distance * joystickRadius;
+        }
+        // スティックの表示だけを左に90°回転。
+        const displayX = dy;
+        const displayY = -dx;
+        joystickStick.style.transform = `translate(${displayX}px, ${displayY}px)`;
+
+        // ゲーム内の移動入力も同じ向きに90°右回転。
+        const rawJoystickX = dx / joystickRadius;
+        const rawJoystickY = dy / joystickRadius;
+        joystickX = rawJoystickY;
+        joystickY = -rawJoystickX;
+        const normalizedDistance = Math.hypot(joystickX, joystickY);
+        if (normalizedDistance < joystickDeadZone) {
+            joystickX = 0;
+            joystickY = 0;
+        }
+    }
+    function resetJoystick() {
+        joystickPointerId = null;
+        joystickX = 0;
+        joystickY = 0;
+        joystickStick.style.transform = 'translate(0px, 0px)';
+    }
+    function handleJoystickStart(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (joystickPointerId !== null) return;
+        joystickPointerId = e.pointerId;
+        try {
+            joystickContainer.setPointerCapture(e.pointerId);
+        } catch (err) {}
+        updateJoystick(e.clientX, e.clientY);
+    }
+    function handleJoystickMove(e) {
+        if (e.pointerId !== joystickPointerId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        updateJoystick(e.clientX, e.clientY);
+    }
+    function handleJoystickEnd(e) {
+        if (e.pointerId !== joystickPointerId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+            if (joystickContainer.hasPointerCapture(e.pointerId)) {
+                joystickContainer.releasePointerCapture(e.pointerId);
+            }
+        } catch (err) {}
+        resetJoystick();
+    }
+    joystickContainer.addEventListener('pointerdown', handleJoystickStart, { passive: false });
+    joystickContainer.addEventListener('pointermove', handleJoystickMove, { passive: false });
+    joystickContainer.addEventListener('pointerup', handleJoystickEnd, { passive: false });
+    joystickContainer.addEventListener('pointercancel', handleJoystickEnd, { passive: false });
+    // ============================================================
+    // キーボード
+    // ============================================================
+    const keyState = {
+        up: false,
+        down: false,
+        left: false,
+        right: false
+    };
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowUp' || e.key === 'w') keyState.up = true;
+        if (e.key === 'ArrowDown' || e.key === 's') keyState.down = true;
+        if (e.key === 'ArrowLeft' || e.key === 'a') keyState.left = true;
+        if (e.key === 'ArrowRight' || e.key === 'd') keyState.right = true;
+    });
+    window.addEventListener('keyup', (e) => {
+        if (e.key === 'ArrowUp' || e.key === 'w') keyState.up = false;
+        if (e.key === 'ArrowDown' || e.key === 's') keyState.down = false;
+        if (e.key === 'ArrowLeft' || e.key === 'a') keyState.left = false;
+        if (e.key === 'ArrowRight' || e.key === 'd') keyState.right = false;
+    });
+    // ============================================================
+    // カメラ操作
+    // ============================================================
+    let isCameraDragging = false;
+    let cameraPointerId = null;
+    let previousTouchX = 0;
+    let previousTouchY = 0;
+    function handleRightScreenStart(e) {
+        if (e.target.closest('#joystick-container')) return;
+        if (isCameraDragging) return;
+        if (getLogicalX(e.clientX, e.clientY) >= getLogicalWidth() / 2) {
+            e.preventDefault();
+            isCameraDragging = true;
+            cameraPointerId = e.pointerId;
+            previousTouchX = getLogicalX(e.clientX, e.clientY);
+            previousTouchY = getLogicalY(e.clientX, e.clientY);
+            try {
+                renderer.domElement.setPointerCapture(e.pointerId);
+            } catch (err) {}
+        }
+    }
+    function handleRightScreenMove(e) {
+        if (!isCameraDragging) return;
+        if (e.pointerId !== cameraPointerId) return;
+        e.preventDefault();
+        const currentLogicalX = getLogicalX(e.clientX, e.clientY);
+        const currentLogicalY = getLogicalY(e.clientX, e.clientY);
+        const deltaX = currentLogicalX - previousTouchX;
+        const deltaY = currentLogicalY - previousTouchY;
+        cameraSpherical.theta -= deltaX * cameraTouchSensitivity;
+        cameraSpherical.phi -= deltaY * cameraTouchSensitivity;
+        cameraSpherical.phi = Math.max(minPolarAngle, Math.min(maxPolarAngle, cameraSpherical.phi));
+        previousTouchX = currentLogicalX;
+        previousTouchY = currentLogicalY;
+    }
+    function handleRightScreenEnd(e) {
+        if (!isCameraDragging) return;
+        if (e.pointerId !== cameraPointerId) return;
+        e.preventDefault();
+        isCameraDragging = false;
+        try {
+            if (renderer.domElement.hasPointerCapture(e.pointerId)) {
+                renderer.domElement.releasePointerCapture(e.pointerId);
+            }
+        } catch (err) {}
+        cameraPointerId = null;
+    }
+    window.addEventListener('pointerdown', handleRightScreenStart, { passive: false });
+    window.addEventListener('pointermove', handleRightScreenMove, { passive: false });
+    window.addEventListener('pointerup', handleRightScreenEnd, { passive: false });
+    window.addEventListener('pointercancel', handleRightScreenEnd, { passive: false });
+    // ============================================================
+    // ct1移動
+    // ============================================================
+    function updateModelMovement(delta) {
+        if (!targetModel) return;
+        let moveX = joystickX;
+        let moveY = joystickY;
+        let currentSpeed = 0;
+        let keyboardX = 0;
+        let keyboardY = 0;
+        if (keyState.right) keyboardX += 1;
+        if (keyState.left) keyboardX -= 1;
+        if (keyState.up) keyboardY -= 1;
+        if (keyState.down) keyboardY += 1;
+        if (keyboardX !== 0 || keyboardY !== 0) {
+            const length = Math.hypot(keyboardX, keyboardY);
+            moveX = keyboardX / length;
+            moveY = keyboardY / length;
+            currentSpeed = maxMoveSpeed;
+        } else {
+            currentSpeed = (moveX !== 0 || moveY !== 0) ? maxMoveSpeed : 0;
+        }
+        const isMoving = currentSpeed > 0;
+        if (isMoving) {
+            if (actions.dash) setAction('dash');
+        } else {
+            if (actions.idle) setAction('idle');
+        }
+        if (isMoving) {
+            const cameraForward = new THREE.Vector3();
+            camera.getWorldDirection(cameraForward);
+            cameraForward.y = 0;
+            cameraForward.normalize();
+            const cameraRight = new THREE.Vector3();
+            cameraRight.crossVectors(cameraForward, new THREE.Vector3(0, 1, 0)).normalize();
+            const moveDirection = new THREE.Vector3();
+            moveDirection
+                .addScaledVector(cameraRight, moveX)
+                .addScaledVector(cameraForward, -moveY);
+            if (moveDirection.lengthSq() > 0) {
+                moveDirection.normalize();
+            }
+
+            const moveDistance = currentSpeed * delta;
+            const proposedX = targetModel.position.x + moveDirection.x * moveDistance;
+            const proposedZ = targetModel.position.z + moveDirection.z * moveDistance;
+            const groundHit = probeGroundHeight(proposedX, proposedZ, targetModel.position.y);
+
+            let canMove = true;
+            if (!groundHit) {
+                canMove = false;
+            } else if (isTooSteep(groundHit)) {
+                canMove = false;
+            } else if (Math.abs(groundHit.point.y - targetModel.position.y) > maxStepHeight) {
+                canMove = false;
+            }
+
+            if (canMove) {
+                targetModel.position.x = proposedX;
+                targetModel.position.z = proposedZ;
+            }
+
+            const targetAngle = Math.atan2(moveDirection.x, moveDirection.z);
+            const targetQuaternion = new THREE.Quaternion();
+            targetQuaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), targetAngle);
+            targetModel.quaternion.slerp(targetQuaternion, rotationSpeed * delta);
+        }
+    }
+    // ============================================================
+    // メインループ
+    // ============================================================
+    function animate() {
+        requestAnimationFrame(animate);
+        if (isRendererContextLost) {
+            return;
+        }
+        const delta = clock.getDelta();
+        // ct1操作
+        updateModelMovement(delta);
+        // ct1アニメーション
+        if (mixer) {
+            mixer.update(delta);
+        }
+        // 地面・障害物判定
+        updateGroundCollision();
+        // カメラ
+        updateCameraPosition();
+        // 視錐台カリング
+        updateBgFrustumCulling();
+        // 通常描画を1回だけ行う。
+        renderer.setRenderTarget(null);
+        renderer.render(scene, camera);
+
+        // 低解像度WebGLバッファを2D canvasへコピーしてポスタライズ
+        if (posterizeCtx && posterizeCanvas) {
+            posterizeCtx.drawImage(renderer.domElement, 0, 0);
+
+            const imageData = posterizeCtx.getImageData(
+                0, 0, posterizeCanvas.width, posterizeCanvas.height
+            );
+            const data = imageData.data;
+            const levels = 6;
+            const step = 255 / (levels - 1);
+
+            for (let i = 0; i < data.length; i += 4) {
+                data[i]     = Math.round(Math.round(data[i]     / step) * step);
+                data[i + 1] = Math.round(Math.round(data[i + 1] / step) * step);
+                data[i + 2] = Math.round(Math.round(data[i + 2] / step) * step);
+            }
+
+            posterizeCtx.putImageData(imageData, 0, 0);
+        }
+    }
+    animate();
+    // ============================================================
+    // リサイズ
+    // ============================================================
+    window.addEventListener('resize', () => {
+        updateForceRotateClass();
+        camera.aspect = getLogicalWidth() / getLogicalHeight();
+        camera.updateProjectionMatrix();
+        applyPixelatedRendererSize();
+    });
+    window.addEventListener('orientationchange', () => {
+        updateForceRotateClass();
+        camera.aspect = getLogicalWidth() / getLogicalHeight();
+        camera.updateProjectionMatrix();
+        applyPixelatedRendererSize();
+    });
+</script>
+</body>
+</html>
