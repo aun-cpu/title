@@ -540,8 +540,9 @@
             './ct1.glb',
             function (gltf) {
                 targetModel = gltf.scene;
-                // 90度回転させたカメラ視点で見て左側にct・カメラを配置する
+                // 90度回転させたカメラ視点で見て左側・奥側にct・カメラを配置する
                 targetModel.position.x -= 4;
+                targetModel.position.z -= 3;
                 // カメラの方（こちら側）を向かせる
                 targetModel.rotation.y = initialLeftYawOffset;
                 targetModel.traverse((child) => {
