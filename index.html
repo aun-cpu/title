@@ -59,6 +59,7 @@
         touch-action: none;
         user-select: none;
         -webkit-user-select: none;
+        display: none;
     }
     #joystick-base {
         position: absolute;
@@ -88,6 +89,43 @@
         pointer-events: none;
         transform: translate(0px, 0px);
     }
+    #start-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 50;
+        background: rgba(0, 0, 0, 0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 0.5s ease;
+        opacity: 1;
+    }
+    #start-screen.is-hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+    #start-button {
+        min-width: 200px;
+        padding: 18px 48px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.9);
+        border: 2px solid rgba(255, 255, 255, 0.95);
+        color: #1a1a1a;
+        font-family: sans-serif;
+        font-size: 22px;
+        font-weight: bold;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+    #start-button:active {
+        background: rgba(230, 230, 230, 0.95);
+        transform: scale(0.97);
+    }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -98,6 +136,9 @@
     <div id="joystick-container">
         <div id="joystick-base"></div>
         <div id="joystick-stick"></div>
+    </div>
+    <div id="start-screen">
+        <button id="start-button">START</button>
     </div>
 </div>
 <script>
@@ -345,7 +386,9 @@
     // ============================================================
     const targetHeightOffset = 1.5;
     const cameraDistance = 1.6;
-    let cameraSpherical = new THREE.Spherical(cameraDistance, Math.PI / 2.2, 0);
+    // カメラとct1の初期配置を左に90度分だけ回転させておく
+    const initialLeftYawOffset = Math.PI / 2;
+    let cameraSpherical = new THREE.Spherical(cameraDistance, Math.PI / 2.2, initialLeftYawOffset);
     const minPolarAngle = 0.1;
     const maxPolarAngle = Math.PI / 2 - 0.05;
     // ============================================================
@@ -358,6 +401,31 @@
     let currentAction = null;
     const animationFPS = 30;
     const clock = new THREE.Clock();
+    // ============================================================
+    // スタート画面
+    // ============================================================
+    // モデルの読み込みは通常どおり行うが、スタートボタンが
+    // 押されるまでは操作（ジョイスティック・キーボード・カメラドラッグ）
+    // とカメラの追従を無効にしておく。
+    let gameStarted = false;
+    const startScreenElement = document.getElementById('start-screen');
+    const startButtonElement = document.getElementById('start-button');
+    startButtonElement.addEventListener('click', () => {
+        if (gameStarted) return;
+        gameStarted = true;
+        if (startScreenElement) {
+            startScreenElement.classList.add('is-hidden');
+            setTimeout(() => {
+                if (startScreenElement.parentNode) {
+                    startScreenElement.parentNode.removeChild(startScreenElement);
+                }
+            }, 500);
+        }
+        if (joystickContainer) {
+            joystickContainer.style.display = 'block';
+        }
+        setAction('idle');
+    });
     // ============================================================
     // 移動・カメラ設定
     // ============================================================
@@ -469,7 +537,7 @@
             './ct1.glb',
             function (gltf) {
                 targetModel = gltf.scene;
-                targetModel.rotation.y = Math.PI;
+                targetModel.rotation.y = Math.PI + initialLeftYawOffset;
                 targetModel.traverse((child) => {
                     if (!child.isMesh) return;
                     const materials = Array.isArray(child.material) ? child.material : [child.material];
@@ -494,20 +562,22 @@
                 scene.add(targetModel);
 
                 // ====================================================
-                // ct1アニメーション（idle / 歩行のみ使用）
+                // ct1アニメーション（idle / 歩行 / title）
                 // ====================================================
                 if (gltf.animations && gltf.animations.length > 0) {
                     mixer = new THREE.AnimationMixer(targetModel);
                     gltf.animations.forEach((clip) => {
                         const animationName = clip.name.trim().toLowerCase();
-                        if (animationName === 'idle' || animationName === 'dash') {
+                        if (animationName === 'idle' || animationName === 'dash' || animationName === 'title') {
                             const action = mixer.clipAction(clip);
                             action.setLoop(THREE.LoopRepeat, Infinity);
                             action.clampWhenFinished = false;
                             actions[animationName] = action;
                         }
                     });
-                    setAction('idle');
+                    // スタート前はtitleモーションをループ再生し、
+                    // titleが無ければidleを再生しておく
+                    setAction(actions.title ? 'title' : 'idle');
                 }
 
                 updateCameraPosition();
@@ -601,6 +671,7 @@
         joystickStick.style.transform = 'translate(0px, 0px)';
     }
     function handleJoystickStart(e) {
+        if (!gameStarted) return;
         e.preventDefault();
         e.stopPropagation();
         if (joystickPointerId !== null) return;
@@ -641,6 +712,7 @@
         right: false
     };
     window.addEventListener('keydown', (e) => {
+        if (!gameStarted) return;
         if (e.key === 'ArrowUp' || e.key === 'w') keyState.up = true;
         if (e.key === 'ArrowDown' || e.key === 's') keyState.down = true;
         if (e.key === 'ArrowLeft' || e.key === 'a') keyState.left = true;
@@ -660,6 +732,7 @@
     let previousTouchX = 0;
     let previousTouchY = 0;
     function handleRightScreenStart(e) {
+        if (!gameStarted) return;
         if (e.target.closest('#joystick-container')) return;
         if (isCameraDragging) return;
         if (getLogicalX(e.clientX, e.clientY) >= getLogicalWidth() / 2) {
@@ -708,6 +781,7 @@
     // ============================================================
     function updateModelMovement(delta) {
         if (!targetModel) return;
+        if (!gameStarted) return;
         let moveX = joystickX;
         let moveY = joystickY;
         let currentSpeed = 0;
@@ -788,8 +862,10 @@
         }
         // 地面・障害物判定
         updateGroundCollision();
-        // カメラ
-        updateCameraPosition();
+        // カメラ（スタート前は追従させない）
+        if (gameStarted) {
+            updateCameraPosition();
+        }
         // 視錐台カリング
         updateBgFrustumCulling();
         // 通常描画を1回だけ行う。
