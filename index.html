@@ -541,8 +541,8 @@
             function (gltf) {
                 targetModel = gltf.scene;
                 // 90度回転させたカメラ視点で見て左側・奥側にct・カメラを配置する
-                targetModel.position.x -= 5;
-                targetModel.position.z -= 5.3;
+                targetModel.position.x -= 4;
+                targetModel.position.z -= 3;
                 // カメラの方（こちら側）を向かせる
                 targetModel.rotation.y = initialLeftYawOffset;
                 targetModel.traverse((child) => {
@@ -633,6 +633,26 @@
         const offset = new THREE.Vector3().setFromSpherical(cameraSpherical);
         camera.position.copy(targetPosition).add(offset);
         camera.lookAt(targetPosition);
+    }
+    // ============================================================
+    // 開始前カメラフレーミング（ctを画面右端に寄せる）
+    // ============================================================
+    const startScreenRightOffset = 1.1;
+    function updateStartCameraFraming() {
+        if (!targetModel) return;
+        const targetPosition = targetModel.position.clone()
+            .add(new THREE.Vector3(0, targetHeightOffset, 0));
+        const offset = new THREE.Vector3().setFromSpherical(cameraSpherical);
+        camera.position.copy(targetPosition).add(offset);
+
+        const cameraForward = targetPosition.clone().sub(camera.position).normalize();
+        const cameraRight = new THREE.Vector3()
+            .crossVectors(cameraForward, new THREE.Vector3(0, 1, 0))
+            .normalize();
+        // 見る先を左にずらすことで、ct自体は画面の右端寄りに映る
+        const lookTarget = targetPosition.clone()
+            .sub(cameraRight.multiplyScalar(startScreenRightOffset));
+        camera.lookAt(lookTarget);
     }
     // ============================================================
     // アナログスティック
