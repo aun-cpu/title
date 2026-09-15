@@ -10,6 +10,7 @@
         padding: 0;
         box-sizing: border-box;
     }
+
     body {
         width: 100vw;
         height: 100vh;
@@ -17,6 +18,7 @@
         background-color: #1a1a1a;
         touch-action: none;
     }
+
     #app-stage {
         position: fixed;
         top: 0;
@@ -26,6 +28,7 @@
         transform-origin: left top;
         z-index: 1;
     }
+
     body.force-rotate #app-stage {
         top: 0;
         left: 100%;
@@ -33,6 +36,7 @@
         height: 100vw;
         transform: rotate(90deg);
     }
+
     #canvas-container {
         width: 100%;
         height: 100%;
@@ -41,11 +45,13 @@
         left: 0;
         z-index: 1;
     }
+
     #canvas-container canvas {
         image-rendering: pixelated;
         image-rendering: -moz-crisp-edges;
         image-rendering: crisp-edges;
     }
+
     #joystick-container {
         position: absolute;
         left: 30px;
@@ -58,6 +64,7 @@
         -webkit-user-select: none;
         display: none;
     }
+
     #joystick-base {
         position: absolute;
         left: 0;
@@ -71,6 +78,7 @@
         user-select: none;
         -webkit-user-select: none;
     }
+
     #joystick-stick {
         position: absolute;
         left: 52px;
@@ -86,6 +94,7 @@
         pointer-events: none;
         transform: translate(0px, 0px);
     }
+
     #start-screen {
         position: absolute;
         top: 0;
@@ -102,10 +111,12 @@
         opacity: 1;
         pointer-events: none;
     }
+
     #start-screen.is-hidden {
         opacity: 0;
         pointer-events: none;
     }
+
     #start-button {
         min-width: 200px;
         padding: 18px 48px;
@@ -122,6 +133,7 @@
         -webkit-tap-highlight-color: transparent;
         pointer-events: auto;
     }
+
     #start-button:active {
         background: rgba(230, 230, 230, 0.95);
         transform: scale(0.97);
@@ -135,6 +147,7 @@
 <body>
 
 <div id="app-stage">
+
     <div id="canvas-container"></div>
 
     <div id="joystick-container">
@@ -145,9 +158,11 @@
     <div id="start-screen">
         <button id="start-button">START</button>
     </div>
+
 </div>
 
 <script>
+
     // ============================================================
     // 画面の向き制御
     // ============================================================
@@ -169,7 +184,9 @@
     }
 
     function getLogicalX(clientX, clientY) {
-        return isPortraitDevice() ? clientY : clientX;
+        return isPortraitDevice()
+            ? clientY
+            : clientX;
     }
 
     function getLogicalY(clientX, clientY) {
@@ -179,6 +196,7 @@
     }
 
     function updateForceRotateClass() {
+
         if (isPortraitDevice()) {
             document.body.classList.add('force-rotate');
         } else {
@@ -196,6 +214,7 @@
     const scene = new THREE.Scene();
 
     const bgGroup = new THREE.Group();
+
     scene.add(bgGroup);
 
     const camera = new THREE.PerspectiveCamera(
@@ -223,51 +242,90 @@
     let posterizeCtx = null;
 
     function applyPixelatedRendererSize() {
-        const displayWidth = getLogicalWidth();
-        const displayHeight = getLogicalHeight();
 
-        const lowResWidth = Math.max(
-            1,
-            Math.floor(displayWidth / pixelationScale)
-        );
+        const displayWidth =
+            getLogicalWidth();
 
-        const lowResHeight = Math.max(
-            1,
-            Math.floor(displayHeight / pixelationScale)
-        );
+        const displayHeight =
+            getLogicalHeight();
 
-        renderer.setPixelRatio(1);
-        renderer.setSize(lowResWidth, lowResHeight, false);
-
-        if (!posterizeCanvas) {
-            posterizeCanvas = document.createElement('canvas');
-
-            posterizeCanvas.style.imageRendering = 'pixelated';
-            posterizeCanvas.style.position = 'absolute';
-            posterizeCanvas.style.top = '0';
-            posterizeCanvas.style.left = '0';
-
-            posterizeCtx = posterizeCanvas.getContext(
-                '2d',
-                { alpha: false }
+        const lowResWidth =
+            Math.max(
+                1,
+                Math.floor(
+                    displayWidth /
+                    pixelationScale
+                )
             );
 
+        const lowResHeight =
+            Math.max(
+                1,
+                Math.floor(
+                    displayHeight /
+                    pixelationScale
+                )
+            );
+
+        renderer.setPixelRatio(1);
+
+        renderer.setSize(
+            lowResWidth,
+            lowResHeight,
+            false
+        );
+
+        if (!posterizeCanvas) {
+
+            posterizeCanvas =
+                document.createElement(
+                    'canvas'
+                );
+
+            posterizeCanvas.style.imageRendering =
+                'pixelated';
+
+            posterizeCanvas.style.position =
+                'absolute';
+
+            posterizeCanvas.style.top =
+                '0';
+
+            posterizeCanvas.style.left =
+                '0';
+
+            posterizeCtx =
+                posterizeCanvas.getContext(
+                    '2d',
+                    { alpha: false }
+                );
+
             if (!posterizeCtx) {
+
                 console.warn(
                     '2D canvas context could not be created.'
                 );
+
                 return;
             }
 
-            posterizeCtx.imageSmoothingEnabled = false;
+            posterizeCtx.imageSmoothingEnabled =
+                false;
 
             document
-                .getElementById('canvas-container')
-                .appendChild(posterizeCanvas);
+                .getElementById(
+                    'canvas-container'
+                )
+                .appendChild(
+                    posterizeCanvas
+                );
         }
 
-        posterizeCanvas.width = lowResWidth;
-        posterizeCanvas.height = lowResHeight;
+        posterizeCanvas.width =
+            lowResWidth;
+
+        posterizeCanvas.height =
+            lowResHeight;
 
         posterizeCanvas.style.width =
             displayWidth + 'px';
@@ -281,43 +339,71 @@
 
     applyPixelatedRendererSize();
 
-    renderer.outputEncoding = THREE.sRGBEncoding;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.95;
+    renderer.outputEncoding =
+        THREE.sRGBEncoding;
 
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping =
+        THREE.ACESFilmicToneMapping;
 
-    const cappedAnisotropy = Math.min(
-        4,
-        renderer.capabilities.getMaxAnisotropy()
-    );
+    renderer.toneMappingExposure =
+        0.95;
+
+    renderer.shadowMap.enabled =
+        true;
+
+    renderer.shadowMap.type =
+        THREE.PCFSoftShadowMap;
+
+    const cappedAnisotropy =
+        Math.min(
+            4,
+            renderer.capabilities
+                .getMaxAnisotropy()
+        );
 
 
     // ============================================================
     // 地面当たり判定
     // ============================================================
 
-    const groundRaycaster = new THREE.Raycaster();
+    const groundRaycaster =
+        new THREE.Raycaster();
 
     const groundRayDirection =
-        new THREE.Vector3(0, -1, 0);
+        new THREE.Vector3(
+            0,
+            -1,
+            0
+        );
 
     const groundRayOrigin =
         new THREE.Vector3();
 
-    const groundOffset = 0.0;
-    const terrainProbeHeight = 20.0;
-    const maxStepHeight = 0.5;
+    const groundOffset =
+        0.0;
+
+    const terrainProbeHeight =
+        20.0;
+
+    const maxStepHeight =
+        0.5;
 
     const maxWalkableSlopeAngle =
         THREE.MathUtils.degToRad(50);
 
     const upVector =
-        new THREE.Vector3(0, 1, 0);
+        new THREE.Vector3(
+            0,
+            1,
+            0
+        );
 
 
-    function probeGroundHeight(x, z, referenceY) {
+    function probeGroundHeight(
+        x,
+        z,
+        referenceY
+    ) {
 
         if (
             !bgGroup ||
@@ -328,7 +414,8 @@
 
         groundRayOrigin.set(
             x,
-            referenceY + terrainProbeHeight,
+            referenceY +
+                terrainProbeHeight,
             z
         );
 
@@ -347,12 +434,18 @@
             return null;
         }
 
-        for (let i = 0; i < hits.length; i++) {
+        for (
+            let i = 0;
+            i < hits.length;
+            i++
+        ) {
 
             if (
                 hits[i].point.y <=
-                referenceY + maxStepHeight
+                referenceY +
+                maxStepHeight
             ) {
+
                 return hits[i];
             }
         }
@@ -363,7 +456,10 @@
 
     function isTooSteep(hit) {
 
-        if (!hit || !hit.face) {
+        if (
+            !hit ||
+            !hit.face
+        ) {
             return false;
         }
 
@@ -375,7 +471,9 @@
                 );
 
         const slopeAngle =
-            worldNormal.angleTo(upVector);
+            worldNormal.angleTo(
+                upVector
+            );
 
         return slopeAngle >
             maxWalkableSlopeAngle;
@@ -404,7 +502,8 @@
         if (isTooSteep(hit)) return;
 
         targetModel.position.y =
-            hit.point.y + groundOffset;
+            hit.point.y +
+            groundOffset;
     }
 
 
@@ -416,56 +515,70 @@
 
     document.addEventListener(
         'touchend',
-        function (e) {
+        function(e) {
 
-            const now = Date.now();
+            const now =
+                Date.now();
 
             if (
-                now - lastTouchEndTime <= 350
+                now -
+                lastTouchEndTime <=
+                350
             ) {
+
                 e.preventDefault();
             }
 
-            lastTouchEndTime = now;
+            lastTouchEndTime =
+                now;
 
         },
         { passive: false }
     );
+
 
     document.addEventListener(
         'dblclick',
-        function (e) {
+        function(e) {
+
             e.preventDefault();
+
         },
         { passive: false }
     );
 
+
     document.addEventListener(
         'gesturestart',
-        function (e) {
+        function(e) {
             e.preventDefault();
         }
     );
+
 
     document.addEventListener(
         'gesturechange',
-        function (e) {
+        function(e) {
             e.preventDefault();
         }
     );
+
 
     document.addEventListener(
         'gestureend',
-        function (e) {
+        function(e) {
             e.preventDefault();
         }
     );
 
+
     document.addEventListener(
         'touchmove',
-        function (e) {
+        function(e) {
 
-            if (e.touches.length > 1) {
+            if (
+                e.touches.length > 1
+            ) {
                 e.preventDefault();
             }
 
@@ -478,15 +591,17 @@
     // WebGLコンテキストロスト対策
     // ============================================================
 
-    let isRendererContextLost = false;
+    let isRendererContextLost =
+        false;
 
     renderer.domElement.addEventListener(
         'webglcontextlost',
-        function (e) {
+        function(e) {
 
             e.preventDefault();
 
-            isRendererContextLost = true;
+            isRendererContextLost =
+                true;
 
             console.warn(
                 'WebGLコンテキストが失われました。復帰を待機します。'
@@ -496,13 +611,18 @@
         false
     );
 
+
     renderer.domElement.addEventListener(
         'webglcontextrestored',
-        function () {
+        function() {
 
-            isRendererContextLost = false;
+            isRendererContextLost =
+                false;
 
-            if (typeof clock !== 'undefined') {
+            if (
+                typeof clock !==
+                'undefined'
+            ) {
                 clock.getDelta();
             }
 
@@ -538,20 +658,35 @@
         7.5
     );
 
-    dirLight.castShadow = true;
+    dirLight.castShadow =
+        true;
 
-    dirLight.shadow.mapSize.width = 1024;
-    dirLight.shadow.mapSize.height = 1024;
+    dirLight.shadow.mapSize.width =
+        1024;
 
-    dirLight.shadow.camera.near = 0.5;
-    dirLight.shadow.camera.far = 50;
+    dirLight.shadow.mapSize.height =
+        1024;
 
-    dirLight.shadow.camera.left = -15;
-    dirLight.shadow.camera.right = 15;
-    dirLight.shadow.camera.top = 15;
-    dirLight.shadow.camera.bottom = -15;
+    dirLight.shadow.camera.near =
+        0.5;
 
-    dirLight.shadow.bias = -0.0005;
+    dirLight.shadow.camera.far =
+        50;
+
+    dirLight.shadow.camera.left =
+        -15;
+
+    dirLight.shadow.camera.right =
+        15;
+
+    dirLight.shadow.camera.top =
+        15;
+
+    dirLight.shadow.camera.bottom =
+        -15;
+
+    dirLight.shadow.bias =
+        -0.0005;
 
     scene.add(dirLight);
 
@@ -576,13 +711,17 @@
     // ============================================================
 
     const pmremGenerator =
-        new THREE.PMREMGenerator(renderer);
+        new THREE.PMREMGenerator(
+            renderer
+        );
 
     const environmentScene =
         new THREE.Scene();
 
     environmentScene.background =
-        new THREE.Color(0x202020);
+        new THREE.Color(
+            0x202020
+        );
 
     const environmentLight =
         new THREE.HemisphereLight(
@@ -591,7 +730,9 @@
             2
         );
 
-    environmentScene.add(environmentLight);
+    environmentScene.add(
+        environmentLight
+    );
 
     const environmentTarget =
         pmremGenerator.fromScene(
@@ -606,9 +747,11 @@
     // カメラ設定
     // ============================================================
 
-    const targetHeightOffset = 1.5;
+    const targetHeightOffset =
+        1.5;
 
-    const cameraDistance = 1.6;
+    const cameraDistance =
+        1.6;
 
     const initialLeftYawOffset =
         Math.PI / 2;
@@ -620,10 +763,21 @@
             initialLeftYawOffset
         );
 
-    const minPolarAngle = 0.1;
+    const minPolarAngle =
+        0.1;
 
     const maxPolarAngle =
         Math.PI / 2 - 0.05;
+
+
+    // ============================================================
+    // タイトル画面専用カメラ設定
+    // ============================================================
+
+    // ct1を動かさず、
+    // カメラだけをct1の左側へずらす距離
+    const titleCameraLeftOffset =
+        1.5;
 
 
     // ============================================================
@@ -631,6 +785,7 @@
     // ============================================================
 
     let targetModel = null;
+
     let bgModel = null;
 
     let mixer = null;
@@ -639,16 +794,19 @@
 
     let currentAction = null;
 
-    const animationFPS = 30;
+    const animationFPS =
+        30;
 
-    const clock = new THREE.Clock();
+    const clock =
+        new THREE.Clock();
 
 
     // ============================================================
     // スタート画面
     // ============================================================
 
-    let gameStarted = false;
+    let gameStarted =
+        false;
 
     const startScreenElement =
         document.getElementById(
@@ -665,9 +823,12 @@
         'click',
         () => {
 
-            if (gameStarted) return;
+            if (gameStarted) {
+                return;
+            }
 
-            gameStarted = true;
+            gameStarted =
+                true;
 
             if (startScreenElement) {
 
@@ -675,29 +836,37 @@
                     'is-hidden'
                 );
 
-                setTimeout(() => {
+                setTimeout(
+                    () => {
 
-                    if (
-                        startScreenElement.parentNode
-                    ) {
-                        startScreenElement.parentNode
-                            .removeChild(
-                                startScreenElement
-                            );
-                    }
+                        if (
+                            startScreenElement.parentNode
+                        ) {
 
-                }, 500);
+                            startScreenElement
+                                .parentNode
+                                .removeChild(
+                                    startScreenElement
+                                );
+                        }
+
+                    },
+                    500
+                );
             }
 
             if (joystickContainer) {
+
                 joystickContainer.style.display =
                     'block';
             }
 
-            setAction('idle');
+            setAction(
+                'idle'
+            );
 
             // STARTを押した瞬間に
-            // 通常のカメラ位置へ戻す
+            // 通常カメラへ切り替える
             updateCameraPosition();
         }
     );
@@ -707,11 +876,14 @@
     // 移動・カメラ設定
     // ============================================================
 
-    const maxMoveSpeed = 4.0;
+    const maxMoveSpeed =
+        4.0;
 
-    const rotationSpeed = 10.0;
+    const rotationSpeed =
+        10.0;
 
-    const cameraTouchSensitivity = 0.005;
+    const cameraTouchSensitivity =
+        0.005;
 
 
     // ============================================================
@@ -726,68 +898,92 @@
     // 背景モデル
     // ============================================================
 
-    function setupBgMaterials(bgScene) {
+    function setupBgMaterials(
+        bgScene
+    ) {
 
-        bgScene.traverse((child) => {
+        bgScene.traverse(
+            (child) => {
 
-            if (!child.isMesh) return;
+                if (!child.isMesh) {
+                    return;
+                }
 
-            const oldMaterial =
-                child.material;
+                const oldMaterial =
+                    child.material;
 
-            const materials =
-                Array.isArray(oldMaterial)
-                    ? oldMaterial
-                    : [oldMaterial];
+                const materials =
+                    Array.isArray(
+                        oldMaterial
+                    )
+                        ? oldMaterial
+                        : [oldMaterial];
 
-            const newMaterials =
-                materials.map((material) => {
+                const newMaterials =
+                    materials.map(
+                        (material) => {
 
-                    if (material.map) {
+                            if (material.map) {
 
-                        material.map.encoding =
-                            THREE.sRGBEncoding;
+                                material.map.encoding =
+                                    THREE.sRGBEncoding;
 
-                        material.map.anisotropy =
-                            cappedAnisotropy;
+                                material.map.anisotropy =
+                                    cappedAnisotropy;
 
-                        material.map.needsUpdate =
-                            true;
+                                material.map.needsUpdate =
+                                    true;
+                            }
+
+                            return new THREE.MeshBasicMaterial({
+                                color: 0xffffff,
+                                wireframe: false,
+                                transparent: true,
+                                opacity: 0.99,
+                                map:
+                                    material.map ||
+                                    null,
+                                vertexColors:
+                                    material.vertexColors
+                            });
+
+                        }
+                    );
+
+                child.material =
+                    Array.isArray(
+                        oldMaterial
+                    )
+                        ? newMaterials
+                        : newMaterials[0];
+
+                child.receiveShadow =
+                    true;
+
+                child.frustumCulled =
+                    true;
+
+                if (child.geometry) {
+
+                    if (
+                        !child.geometry.boundingSphere
+                    ) {
+
+                        child.geometry
+                            .computeBoundingSphere();
                     }
 
-                    return new THREE.MeshBasicMaterial({
-                        color: 0xffffff,
-                        wireframe: false,
-                        transparent: true,
-                        opacity: 0.99,
-                        map: material.map || null,
-                        vertexColors:
-                            material.vertexColors
-                    });
+                    if (
+                        !child.geometry.boundingBox
+                    ) {
 
-                });
-
-            child.material =
-                Array.isArray(oldMaterial)
-                    ? newMaterials
-                    : newMaterials[0];
-
-            child.receiveShadow = true;
-
-            child.frustumCulled = true;
-
-            if (child.geometry) {
-
-                if (!child.geometry.boundingSphere) {
-                    child.geometry.computeBoundingSphere();
+                        child.geometry
+                            .computeBoundingBox();
+                    }
                 }
 
-                if (!child.geometry.boundingBox) {
-                    child.geometry.computeBoundingBox();
-                }
             }
-
-        });
+        );
     }
 
 
@@ -796,7 +992,7 @@
         loader.load(
             './bgti1.glb',
 
-            function (gltf) {
+            function(gltf) {
 
                 try {
 
@@ -829,7 +1025,8 @@
                     );
                 }
 
-                bgModel = bgGroup;
+                bgModel =
+                    bgGroup;
 
                 loadCt1Model();
 
@@ -837,7 +1034,7 @@
 
             undefined,
 
-            function (error) {
+            function(error) {
 
                 console.error(
                     'bgti1.glb の読み込みエラー:',
@@ -856,7 +1053,8 @@
     // 背景パーツの視錐台カリング
     // ============================================================
 
-    const bgCullingParts = [];
+    const bgCullingParts =
+        [];
 
     const bgCullingFrustum =
         new THREE.Frustum();
@@ -864,7 +1062,8 @@
     const bgCullingProjScreenMatrix =
         new THREE.Matrix4();
 
-    const bgCullingMargin = 2.0;
+    const bgCullingMargin =
+        2.0;
 
 
     function registerBgCullingPart(
@@ -877,7 +1076,9 @@
                     partScene
                 );
 
-        if (box.isEmpty()) return;
+        if (box.isEmpty()) {
+            return;
+        }
 
         const sphere =
             new THREE.Sphere();
@@ -899,7 +1100,8 @@
     function updateBgFrustumCulling() {
 
         if (
-            bgCullingParts.length === 0
+            bgCullingParts.length ===
+            0
         ) {
             return;
         }
@@ -942,13 +1144,18 @@
         loader.load(
             './ct1.glb',
 
-            function (gltf) {
+            function(gltf) {
 
                 targetModel =
                     gltf.scene;
 
-                targetModel.position.x -= 5;
-                targetModel.position.z -= 5.3;
+                // ct1の位置は変更しない
+                // （タイトル画面の位置調整はカメラ側だけで行う）
+                targetModel.position.x -=
+                    5;
+
+                targetModel.position.z -=
+                    5.3;
 
                 targetModel.rotation.y =
                     initialLeftYawOffset;
@@ -975,7 +1182,9 @@
                                     return;
                                 }
 
-                                if (material.color) {
+                                if (
+                                    material.color
+                                ) {
 
                                     material.color
                                         .multiplyScalar(
@@ -992,7 +1201,9 @@
                                 material.envMapIntensity =
                                     0.08;
 
-                                if (material.map) {
+                                if (
+                                    material.map
+                                ) {
 
                                     material.map.encoding =
                                         THREE.sRGBEncoding;
@@ -1009,8 +1220,11 @@
                             }
                         );
 
-                        child.castShadow = true;
-                        child.receiveShadow = true;
+                        child.castShadow =
+                            true;
+
+                        child.receiveShadow =
+                            true;
 
                     }
                 );
@@ -1027,7 +1241,8 @@
 
                 if (
                     gltf.animations &&
-                    gltf.animations.length > 0
+                    gltf.animations.length >
+                    0
                 ) {
 
                     mixer =
@@ -1044,9 +1259,12 @@
                                     .toLowerCase();
 
                             if (
-                                animationName === 'idle' ||
-                                animationName === 'dash' ||
-                                animationName === 'title'
+                                animationName ===
+                                    'idle' ||
+                                animationName ===
+                                    'dash' ||
+                                animationName ===
+                                    'title'
                             ) {
 
                                 const action =
@@ -1077,15 +1295,15 @@
                 }
 
 
-                // START前なので、
-                // 左にずらしたカメラ位置になる
+                // START前なので
+                // タイトル専用カメラを使用
                 updateCameraPosition();
 
             },
 
             undefined,
 
-            function (error) {
+            function(error) {
 
                 console.error(
                     'ct1.glb の読み込みエラー:',
@@ -1113,11 +1331,15 @@
             actions[name];
 
         if (
-            currentAction !== nextAction
+            currentAction !==
+            nextAction
         ) {
 
             if (currentAction) {
-                currentAction.fadeOut(0.2);
+
+                currentAction.fadeOut(
+                    0.2
+                );
             }
 
             nextAction
@@ -1153,7 +1375,9 @@
 
     function updateCameraPosition() {
 
-        if (!targetModel) return;
+        if (!targetModel) {
+            return;
+        }
 
         const targetPosition =
             targetModel.position
@@ -1166,49 +1390,118 @@
                     )
                 );
 
-        const offset =
-            new THREE.Vector3()
-                .setFromSpherical(
-                    cameraSpherical
-                );
-
 
         // ========================================================
-        // START前だけカメラをct1の左側へ移動
+        // START前：タイトル画面
         // ========================================================
 
         if (!gameStarted) {
 
-            const leftOffset =
+            // ----------------------------------------------------
+            // ct1の正面方向
+            //
+            // GLBのローカル-Z方向を正面として扱う
+            // ----------------------------------------------------
+
+            const frontDirection =
                 new THREE.Vector3(
-                    -1.5,
+                    0,
+                    0,
+                    -1
+                );
+
+            frontDirection.applyQuaternion(
+                targetModel.quaternion
+            );
+
+            frontDirection.y = 0;
+
+            frontDirection.normalize();
+
+
+            // ----------------------------------------------------
+            // ct1から見た左方向
+            // ----------------------------------------------------
+
+            const leftDirection =
+                new THREE.Vector3(
+                    -1,
                     0,
                     0
                 );
 
-            // ct1の向いている方向を基準に
-            // 左側へ移動させる
-            leftOffset.applyQuaternion(
+            leftDirection.applyQuaternion(
                 targetModel.quaternion
             );
 
-            camera.position
-                .copy(targetPosition)
-                .add(offset)
-                .add(leftOffset);
+            leftDirection.y = 0;
+
+            leftDirection.normalize();
+
+
+            // ----------------------------------------------------
+            // カメラをct1の正面＋左側へ配置
+            //
+            // ct1自体は移動させない
+            // ----------------------------------------------------
+
+            const titleCameraPosition =
+                targetPosition
+                    .clone()
+                    .addScaledVector(
+                        frontDirection,
+                        cameraDistance
+                    )
+                    .addScaledVector(
+                        leftDirection,
+                        titleCameraLeftOffset
+                    );
+
+            camera.position.copy(
+                titleCameraPosition
+            );
+
+
+            // ----------------------------------------------------
+            // ct1の正面方向をそのまま見る
+            //
+            // ct1の中心をlookAtしないことで、
+            // カメラを左へずらしても
+            // ct1が画面中央へ戻らないようにする
+            // ----------------------------------------------------
+
+            const titleLookAt =
+                titleCameraPosition
+                    .clone()
+                    .addScaledVector(
+                        frontDirection,
+                        10
+                    );
+
+            camera.lookAt(
+                titleLookAt
+            );
 
         } else {
 
-            // START後は通常位置
+            // ====================================================
+            // START後：通常カメラ
+            // ====================================================
+
+            const offset =
+                new THREE.Vector3()
+                    .setFromSpherical(
+                        cameraSpherical
+                    );
+
             camera.position
                 .copy(targetPosition)
                 .add(offset);
+
+            camera.lookAt(
+                targetPosition
+            );
         }
-
-
-        camera.lookAt(
-            targetPosition
-        );
     }
 
 
@@ -1226,14 +1519,20 @@
             'joystick-stick'
         );
 
-    let joystickPointerId = null;
+    let joystickPointerId =
+        null;
 
-    let joystickX = 0;
-    let joystickY = 0;
+    let joystickX =
+        0;
 
-    const joystickRadius = 52;
+    let joystickY =
+        0;
 
-    const joystickDeadZone = 0.08;
+    const joystickRadius =
+        52;
+
+    const joystickDeadZone =
+        0.08;
 
 
     function updateJoystick(
@@ -1254,16 +1553,22 @@
             rect.height / 2;
 
         let dx =
-            clientX - centerX;
+            clientX -
+            centerX;
 
         let dy =
-            clientY - centerY;
+            clientY -
+            centerY;
 
         const distance =
-            Math.hypot(dx, dy);
+            Math.hypot(
+                dx,
+                dy
+            );
 
         if (
-            distance > joystickRadius
+            distance >
+            joystickRadius
         ) {
 
             dx =
@@ -1278,22 +1583,31 @@
         }
 
 
+        // --------------------------------------------------------
         // スティック表示を左に90度回転
+        // --------------------------------------------------------
 
-        const displayX = dy;
-        const displayY = -dx;
+        const displayX =
+            dy;
+
+        const displayY =
+            -dx;
 
         joystickStick.style.transform =
             `translate(${displayX}px, ${displayY}px)`;
 
 
+        // --------------------------------------------------------
         // ゲーム内移動も同じ向き
+        // --------------------------------------------------------
 
         const rawJoystickX =
-            dx / joystickRadius;
+            dx /
+            joystickRadius;
 
         const rawJoystickY =
-            dy / joystickRadius;
+            dy /
+            joystickRadius;
 
         joystickX =
             rawJoystickY;
@@ -1313,18 +1627,25 @@
             joystickDeadZone
         ) {
 
-            joystickX = 0;
-            joystickY = 0;
+            joystickX =
+                0;
+
+            joystickY =
+                0;
         }
     }
 
 
     function resetJoystick() {
 
-        joystickPointerId = null;
+        joystickPointerId =
+            null;
 
-        joystickX = 0;
-        joystickY = 0;
+        joystickX =
+            0;
+
+        joystickY =
+            0;
 
         joystickStick.style.transform =
             'translate(0px, 0px)';
@@ -1333,13 +1654,16 @@
 
     function handleJoystickStart(e) {
 
-        if (!gameStarted) return;
+        if (!gameStarted) {
+            return;
+        }
 
         e.preventDefault();
         e.stopPropagation();
 
         if (
-            joystickPointerId !== null
+            joystickPointerId !==
+            null
         ) {
             return;
         }
@@ -1456,36 +1780,41 @@
         'keydown',
         (e) => {
 
-            if (!gameStarted) return;
+            if (!gameStarted) {
+                return;
+            }
 
             if (
                 e.key === 'ArrowUp' ||
                 e.key === 'w'
             ) {
-                keyState.up = true;
+                keyState.up =
+                    true;
             }
 
             if (
                 e.key === 'ArrowDown' ||
                 e.key === 's'
             ) {
-                keyState.down = true;
+                keyState.down =
+                    true;
             }
 
             if (
                 e.key === 'ArrowLeft' ||
                 e.key === 'a'
             ) {
-                keyState.left = true;
+                keyState.left =
+                    true;
             }
 
             if (
                 e.key === 'ArrowRight' ||
                 e.key === 'd'
             ) {
-                keyState.right = true;
+                keyState.right =
+                    true;
             }
-
         }
     );
 
@@ -1498,30 +1827,33 @@
                 e.key === 'ArrowUp' ||
                 e.key === 'w'
             ) {
-                keyState.up = false;
+                keyState.up =
+                    false;
             }
 
             if (
                 e.key === 'ArrowDown' ||
                 e.key === 's'
             ) {
-                keyState.down = false;
+                keyState.down =
+                    false;
             }
 
             if (
                 e.key === 'ArrowLeft' ||
                 e.key === 'a'
             ) {
-                keyState.left = false;
+                keyState.left =
+                    false;
             }
 
             if (
                 e.key === 'ArrowRight' ||
                 e.key === 'd'
             ) {
-                keyState.right = false;
+                keyState.right =
+                    false;
             }
-
         }
     );
 
@@ -1530,17 +1862,24 @@
     // カメラ操作
     // ============================================================
 
-    let isCameraDragging = false;
+    let isCameraDragging =
+        false;
 
-    let cameraPointerId = null;
+    let cameraPointerId =
+        null;
 
-    let previousTouchX = 0;
-    let previousTouchY = 0;
+    let previousTouchX =
+        0;
+
+    let previousTouchY =
+        0;
 
 
     function handleRightScreenStart(e) {
 
-        if (!gameStarted) return;
+        if (!gameStarted) {
+            return;
+        }
 
         if (
             e.target.closest(
@@ -1550,8 +1889,9 @@
             return;
         }
 
-        if (isCameraDragging) return;
-
+        if (isCameraDragging) {
+            return;
+        }
 
         if (
             getLogicalX(
@@ -1563,7 +1903,8 @@
 
             e.preventDefault();
 
-            isCameraDragging = true;
+            isCameraDragging =
+                true;
 
             cameraPointerId =
                 e.pointerId;
@@ -1594,7 +1935,9 @@
 
     function handleRightScreenMove(e) {
 
-        if (!isCameraDragging) return;
+        if (!isCameraDragging) {
+            return;
+        }
 
         if (
             e.pointerId !==
@@ -1665,7 +2008,8 @@
 
         e.preventDefault();
 
-        isCameraDragging = false;
+        isCameraDragging =
+            false;
 
         try {
 
@@ -1684,7 +2028,8 @@
 
         } catch (err) {}
 
-        cameraPointerId = null;
+        cameraPointerId =
+            null;
     }
 
 
@@ -1719,17 +2064,28 @@
 
     function updateModelMovement(delta) {
 
-        if (!targetModel) return;
+        if (!targetModel) {
+            return;
+        }
 
-        if (!gameStarted) return;
+        if (!gameStarted) {
+            return;
+        }
 
-        let moveX = joystickX;
-        let moveY = joystickY;
+        let moveX =
+            joystickX;
 
-        let currentSpeed = 0;
+        let moveY =
+            joystickY;
 
-        let keyboardX = 0;
-        let keyboardY = 0;
+        let currentSpeed =
+            0;
+
+        let keyboardX =
+            0;
+
+        let keyboardY =
+            0;
 
 
         if (keyState.right) {
@@ -1761,10 +2117,12 @@
                 );
 
             moveX =
-                keyboardX / length;
+                keyboardX /
+                length;
 
             moveY =
-                keyboardY / length;
+                keyboardY /
+                length;
 
             currentSpeed =
                 maxMoveSpeed;
@@ -1788,13 +2146,17 @@
         if (isMoving) {
 
             if (actions.dash) {
-                setAction('dash');
+                setAction(
+                    'dash'
+                );
             }
 
         } else {
 
             if (actions.idle) {
-                setAction('idle');
+                setAction(
+                    'idle'
+                );
             }
         }
 
@@ -1808,7 +2170,8 @@
                 cameraForward
             );
 
-            cameraForward.y = 0;
+            cameraForward.y =
+                0;
 
             cameraForward.normalize();
 
@@ -1841,14 +2204,17 @@
 
 
             if (
-                moveDirection.lengthSq() > 0
+                moveDirection.lengthSq() >
+                0
             ) {
+
                 moveDirection.normalize();
             }
 
 
             const moveDistance =
-                currentSpeed * delta;
+                currentSpeed *
+                delta;
 
 
             const proposedX =
@@ -1870,27 +2236,34 @@
                 );
 
 
-            let canMove = true;
+            let canMove =
+                true;
 
 
             if (!groundHit) {
 
-                canMove = false;
+                canMove =
+                    false;
 
             } else if (
-                isTooSteep(groundHit)
+                isTooSteep(
+                    groundHit
+                )
             ) {
 
-                canMove = false;
+                canMove =
+                    false;
 
             } else if (
                 Math.abs(
                     groundHit.point.y -
                     targetModel.position.y
-                ) > maxStepHeight
+                ) >
+                maxStepHeight
             ) {
 
-                canMove = false;
+                canMove =
+                    false;
             }
 
 
@@ -1926,7 +2299,8 @@
 
             targetModel.quaternion.slerp(
                 targetQuaternion,
-                rotationSpeed * delta
+                rotationSpeed *
+                delta
             );
         }
     }
@@ -1942,7 +2316,9 @@
             animate
         );
 
-        if (isRendererContextLost) {
+        if (
+            isRendererContextLost
+        ) {
             return;
         }
 
@@ -1950,19 +2326,25 @@
             clock.getDelta();
 
 
-        updateModelMovement(delta);
+        updateModelMovement(
+            delta
+        );
 
 
         if (mixer) {
-            mixer.update(delta);
+            mixer.update(
+                delta
+            );
         }
 
 
         updateGroundCollision();
 
 
-        // START後だけカメラをct1へ追従
+        // START後だけ
+        // 通常の追従カメラを更新
         if (gameStarted) {
+
             updateCameraPosition();
         }
 
@@ -1970,7 +2352,9 @@
         updateBgFrustumCulling();
 
 
-        renderer.setRenderTarget(null);
+        renderer.setRenderTarget(
+            null
+        );
 
         renderer.render(
             scene,
@@ -2002,7 +2386,8 @@
             const data =
                 imageData.data;
 
-            const levels = 9;
+            const levels =
+                9;
 
             const step =
                 255 /
@@ -2018,22 +2403,28 @@
                 data[i] =
                     Math.round(
                         Math.round(
-                            data[i] / step
-                        ) * step
+                            data[i] /
+                            step
+                        ) *
+                        step
                     );
 
                 data[i + 1] =
                     Math.round(
                         Math.round(
-                            data[i + 1] / step
-                        ) * step
+                            data[i + 1] /
+                            step
+                        ) *
+                        step
                     );
 
                 data[i + 2] =
                     Math.round(
                         Math.round(
-                            data[i + 2] / step
-                        ) * step
+                            data[i + 2] /
+                            step
+                        ) *
+                        step
                     );
             }
 
