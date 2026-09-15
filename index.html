@@ -44,54 +44,6 @@
         left: 0;
         z-index: 1;
     }
-    #loading-screen {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 1000;
-        background-color: #1a1208;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-        transition: opacity 0.7s ease;
-        opacity: 1;
-    }
-    #loading-screen.is-hidden {
-        opacity: 0;
-        pointer-events: none;
-    }
-    #loading-progress {
-        position: absolute;
-        bottom: 8%;
-        left: 0;
-        width: 100%;
-        text-align: center;
-        color: #fff;
-        font-family: sans-serif;
-        font-size: 14px;
-        text-shadow: 0 1px 3px rgba(0,0,0,0.6);
-        z-index: 1001;
-    }
-    #loading-screen img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        image-rendering: pixelated;
-        image-rendering: -moz-crisp-edges;
-        image-rendering: crisp-edges;
-        animation: loadingPulse 1.6s ease-in-out infinite;
-    }
-    @keyframes loadingPulse {
-        0%, 100% {
-            filter: brightness(1);
-        }
-        50% {
-            filter: brightness(1.08);
-        }
-    }
     #canvas-container canvas {
         image-rendering: pixelated;
         image-rendering: -moz-crisp-edges;
@@ -142,10 +94,6 @@
 </head>
 <body>
 <div id="app-stage">
-    <div id="loading-screen">
-        <img src="./loading.jpg" alt="Loading...">
-        <div id="loading-progress">0%</div>
-    </div>
     <div id="canvas-container"></div>
     <div id="joystick-container">
         <div id="joystick-base"></div>
@@ -275,7 +223,17 @@
             groundRayDirection
         );
         const hits = groundRaycaster.intersectObject(bgGroup, true);
-        return hits.length > 0 ? hits[0] : null;
+        if (hits.length === 0) return null;
+        // レイは上空から下向きに飛ばしているため、天井や梁など「頭上の物体」に
+        // 最初に当たってしまうことがある。それを地面として扱うと段差判定に
+        // 引っかかって進めなくなるため、現在位置から見て歩行可能な高さ
+        // （maxStepHeight以内）にあるヒットだけを地面として採用する。
+        for (let i = 0; i < hits.length; i++) {
+            if (hits[i].point.y <= referenceY + maxStepHeight) {
+                return hits[i];
+            }
+        }
+        return null;
     }
 
     function isTooSteep(hit) {
@@ -411,53 +369,6 @@
     // ============================================================
     const loader = new THREE.GLTFLoader();
     // ============================================================
-    // ロード画面（bgti1.glb / ct1.glb の2つが揃ったら非表示にする）
-    // ============================================================
-    const loadingScreenElement = document.getElementById('loading-screen');
-    const totalAssetsToLoad = 2; // bgti1 + ct1
-    let loadedAssetCount = 0;
-    let loadingScreenHidden = false;
-    const loadingProgressElement = document.getElementById('loading-progress');
-
-    function markAssetLoaded() {
-        loadedAssetCount++;
-
-        if (loadingProgressElement) {
-            const percent = Math.round((loadedAssetCount / totalAssetsToLoad) * 100);
-            loadingProgressElement.textContent = percent + '%';
-        }
-
-        if (loadedAssetCount >= totalAssetsToLoad && !loadingScreenHidden) {
-            loadingScreenHidden = true;
-            if (loadingScreenElement) {
-                loadingScreenElement.classList.add('is-hidden');
-                setTimeout(() => {
-                    if (loadingScreenElement.parentNode) {
-                        loadingScreenElement.parentNode.removeChild(loadingScreenElement);
-                    }
-                }, 800);
-            }
-        }
-    }
-    // ============================================================
-    // ロード画面のフォールバック
-    // ============================================================
-    const LOADING_FALLBACK_TIMEOUT_MS = 20000;
-    setTimeout(() => {
-        if (!loadingScreenHidden) {
-            console.warn('ロードがタイムアウトしました。強制的にローディング画面を閉じます。');
-            loadingScreenHidden = true;
-            if (loadingScreenElement) {
-                loadingScreenElement.classList.add('is-hidden');
-                setTimeout(() => {
-                    if (loadingScreenElement.parentNode) {
-                        loadingScreenElement.parentNode.removeChild(loadingScreenElement);
-                    }
-                }, 800);
-            }
-        }
-    }, LOADING_FALLBACK_TIMEOUT_MS);
-    // ============================================================
     // bgti1.glb（背景）の読み込み
     // ============================================================
     function setupBgMaterials(bgScene) {
@@ -508,13 +419,11 @@
                     console.error('bgti1.glb のセットアップエラー:', setupError);
                 }
                 bgModel = bgGroup;
-                markAssetLoaded();
                 loadCt1Model();
             },
             undefined,
             function (error) {
                 console.error('bgti1.glb の読み込みエラー:', error);
-                markAssetLoaded();
                 loadCt1Model();
             }
         );
@@ -602,12 +511,10 @@
                 }
 
                 updateCameraPosition();
-                markAssetLoaded();
             },
             undefined,
             function (error) {
                 console.error('ct1.glb の読み込みエラー:', error);
-                markAssetLoaded();
             }
         );
     }
