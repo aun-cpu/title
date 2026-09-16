@@ -789,30 +789,30 @@
     const piSeElement =
         document.getElementById('pi-se');
 
-    let piSeLoopActive = false;
+    let introLastVisibleCount = 0;
 
     function playPiSe() {
-    if (!piSeElement) return;
-    piSeElement.loop = false;
-    piSeElement.currentTime = 0;
-    piSeElement.volume = 1.0;
-    const promise = piSeElement.play();
-    if (promise && typeof promise.catch === 'function') promise.catch(() => {});
-}
-
-function startPiSeLoop() {
-        if (!piSeElement || piSeLoopActive) return;
-        piSeLoopActive = true;
-        piSeElement.loop = true;
+        if (!piSeElement) return;
+        piSeElement.loop = false;
         piSeElement.currentTime = 0;
         piSeElement.volume = 1.0;
         const promise = piSeElement.play();
         if (promise && typeof promise.catch === 'function') promise.catch(() => {});
     }
 
-    function stopPiSeLoop() {
+    // 文字が1文字出るたびに「ピ」を鳴らし直す
+    function playPi() {
         if (!piSeElement) return;
-        piSeLoopActive = false;
+        piSeElement.loop = false;
+        piSeElement.pause();
+        piSeElement.currentTime = 0;
+        piSeElement.volume = 1.0;
+        const promise = piSeElement.play();
+        if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+    }
+
+    function stopPi() {
+        if (!piSeElement) return;
         piSeElement.pause();
         piSeElement.currentTime = 0;
     }
@@ -958,7 +958,7 @@ function startPiSeLoop() {
             introSequenceStartTime = performance.now();
             introFadeStarted = false;
             introCommandStarted = false;
-            updateIntroSequence.lastVisibleCount = 0;
+            introLastVisibleCount = 0;
 
             // 2回目の爆発までは暗転しない。
             if (introFadeElement) {
@@ -2468,9 +2468,10 @@ function startPiSeLoop() {
         introLogElement.textContent =
             fullText.slice(0, visibleCount);
 
-        // 文字が出始めたらpipim.mp3をループし、全文表示で停止する。
-        if (visibleCount > 0 && !piSeLoopActive) {
-            startPiSeLoop();
+        // 新しい文字が表示されるたびに「ピ」を鳴らす
+        if (visibleCount > introLastVisibleCount) {
+            playPi();
+            introLastVisibleCount = visibleCount;
         }
 
         // 表示中は右から少しだけスライド。
@@ -2493,7 +2494,7 @@ function startPiSeLoop() {
             commandElapsed >=
             introCommandDuration + introAfterglowDuration
         ) {
-            stopPiSeLoop();
+            stopPi();
             introSequenceActive = false;
             gameStarted = true;
 
