@@ -847,20 +847,34 @@
         });
     }
 
+    let pipiLoopCount = 0;
+
     function startPipiLoop() {
         if (!pipiSeElement) return;
+        pipiLoopCount = 0;
         pipiSeElement.pause();
         pipiSeElement.currentTime = 0;
-        pipiSeElement.loop = true;
+        pipiSeElement.loop = false;
         pipiSeElement.volume = 1.0;
-        const promise = pipiSeElement.play();
-        if (promise && typeof promise.catch === 'function') promise.catch((error) => {
-            console.warn('pipi.mp3 の再生に失敗しました:', error);
-        });
+
+        const playNextPipi = () => {
+            if (!pipiSeElement || pipiLoopCount >= 7) return;
+            pipiLoopCount++;
+            pipiSeElement.currentTime = 0;
+            const promise = pipiSeElement.play();
+            if (promise && typeof promise.catch === 'function') promise.catch((error) => {
+                console.warn('pipi.mp3 の再生に失敗しました:', error);
+            });
+        };
+
+        pipiSeElement.onended = playNextPipi;
+        playNextPipi();
     }
 
     function stopPipiLoop() {
         if (!pipiSeElement) return;
+        pipiLoopCount = 7;
+        pipiSeElement.onended = null;
         pipiSeElement.pause();
         pipiSeElement.currentTime = 0;
         pipiSeElement.loop = false;
