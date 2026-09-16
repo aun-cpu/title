@@ -648,12 +648,17 @@
 
     let targetModel = null;
     let bgModel = null;
+    let catModel = null;
 
     let mixer = null;
+    let catMixer = null;
 
     let actions = {};
 
     let currentAction = null;
+
+    // ctの右側にcat.glbを配置する距離
+    const catOffsetFromCt = 2;
 
     const animationFPS = 30;
 
@@ -1097,6 +1102,9 @@
                 // 左にずらしたカメラ位置になる
                 updateCameraPosition();
 
+                // ct1の右側にcat.glbを配置する
+                loadCatModel();
+
             },
 
             undefined,
@@ -1105,6 +1113,109 @@
 
                 console.error(
                     'ct1.glb の読み込みエラー:',
+                    error
+                );
+            }
+        );
+    }
+
+
+    // ============================================================
+    // catモデル
+    // ============================================================
+
+    function loadCatModel() {
+
+        loader.load(
+            './cat.glb',
+
+            function (gltf) {
+
+                catModel =
+                    gltf.scene;
+
+                // ct1の正面方向を基準に「右」方向を求める
+                const ctForwardDir =
+                    new THREE.Vector3(
+                        0,
+                        0,
+                        modelForwardSign
+                    ).applyQuaternion(
+                        targetModel.quaternion
+                    );
+
+                const ctRightDir =
+                    new THREE.Vector3()
+                        .crossVectors(
+                            ctForwardDir,
+                            new THREE.Vector3(0, 1, 0)
+                        )
+                        .normalize();
+
+                catModel.position
+                    .copy(
+                        targetModel.position
+                    )
+                    .add(
+                        ctRightDir.multiplyScalar(
+                            catOffsetFromCt
+                        )
+                    );
+
+
+                catModel.traverse(
+                    (child) => {
+
+                        if (!child.isMesh) {
+                            return;
+                        }
+
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                    }
+                );
+
+
+                scene.add(
+                    catModel
+                );
+
+
+                // ====================================================
+                // catアニメーション（ループ再生）
+                // ====================================================
+
+                if (
+                    gltf.animations &&
+                    gltf.animations.length > 0
+                ) {
+
+                    catMixer =
+                        new THREE.AnimationMixer(
+                            catModel
+                        );
+
+                    const catAction =
+                        catMixer.clipAction(
+                            gltf.animations[0]
+                        );
+
+                    catAction.setLoop(
+                        THREE.LoopRepeat,
+                        Infinity
+                    );
+
+                    catAction.play();
+                }
+
+            },
+
+            undefined,
+
+            function (error) {
+
+                console.error(
+                    'cat.glb の読み込みエラー:',
                     error
                 );
             }
@@ -2022,6 +2133,10 @@
 
         if (mixer) {
             mixer.update(delta);
+        }
+
+        if (catMixer) {
+            catMixer.update(delta);
         }
 
 
