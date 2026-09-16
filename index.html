@@ -212,6 +212,7 @@
     </div>
 
     <audio id="title-bgm" src="./title.mp3" loop preload="auto"></audio>
+<audio id="wake-se" src="./wake.mp3" preload="auto"></audio>
     <audio id="pi-se" src="./pi.mp3" preload="auto"></audio>
     <audio id="pipi-se" src="./pipi.mp3" preload="auto"></audio>
 
@@ -2693,4 +2694,16 @@
 </script>
 
 </body>
-</html>
+</html>const wakeSeElement = document.getElementById('wake-se');
+
+function playWake() {
+    if (!wakeSeElement) return;
+    wakeSeElement.pause();
+    wakeSeElement.currentTime = 0;
+    wakeSeElement.loop = false;
+    wakeSeElement.volume = 1.0;
+    const promise = wakeSeElement.play();
+    if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+}
+
+
