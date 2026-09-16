@@ -761,9 +761,15 @@
         'Execution authorization: GRANTED',
         'Enforcement commencing.'
     ];
+    const introSecondExplosionTime = 8.0;
     const introProcessingDuration = 5.0;
     const introCommandDuration = 10.0;
-    const introEndTime = introProcessingDuration + introCommandDuration;
+    const introAfterglowDuration = 4.0;
+    const introEndTime =
+        introSecondExplosionTime +
+        introProcessingDuration +
+        introCommandDuration +
+        introAfterglowDuration;
 
     const startScreenElement =
         document.getElementById(
@@ -828,6 +834,7 @@
             introFadeStarted = false;
             introCommandStarted = false;
 
+            // 2回目の爆発までは暗転しない。
             if (introFadeElement) {
                 introFadeElement.classList.remove('is-black');
                 introFadeElement.style.display = 'block';
@@ -2272,14 +2279,17 @@
         const elapsed =
             (performance.now() - introSequenceStartTime) / 1000;
 
-        // The command sequence begins with the second explosion.
+        // 2回目の爆発までは通常表示。
         if (elapsed < introSecondExplosionTime) {
+            if (introFadeElement) {
+                introFadeElement.classList.remove('is-black');
+            }
             introProcessingElement.style.display = 'none';
             introLogElement.style.display = 'none';
             return;
         }
 
-        // Second explosion: begin blackout.
+        // 2回目の爆発で暗転。
         if (introFadeElement) {
             introFadeElement.classList.add('is-black');
             introFadeElement.style.display = 'block';
@@ -2288,11 +2298,10 @@
         const blackoutElapsed =
             elapsed - introSecondExplosionTime;
 
-        // 5 seconds: blinking "Processing information..."
+        // 5秒間点滅。
         if (blackoutElapsed < introProcessingDuration) {
             introProcessingElement.style.display = 'block';
             introLogElement.style.display = 'none';
-
             introProcessingElement.style.visibility =
                 Math.floor(blackoutElapsed / 0.5) % 2 === 0
                     ? 'visible'
@@ -2300,7 +2309,7 @@
             return;
         }
 
-        // 10 seconds: reveal command text one character at a time.
+        // コマンド表示開始。
         if (!introCommandStarted) {
             introCommandStarted = true;
             introProcessingElement.style.display = 'none';
@@ -2324,47 +2333,40 @@
         introLogElement.textContent =
             fullText.slice(0, visibleCount);
 
-        // Each newly appearing character briefly comes in from the right.
+        // 表示中は右から少しだけスライド。
         if (visibleCount < fullText.length) {
-            const chars = Array.from(fullText);
-            const currentChar = chars[visibleCount] || '';
-
-            if (currentChar) {
+            introLogElement.style.transform = 'translateX(8px)';
+            requestAnimationFrame(() => {
+                if (!introSequenceActive) return;
+                introLogElement.style.transition =
+                    'transform 0.08s linear';
                 introLogElement.style.transform =
-                    'translateX(8px)';
-
-                requestAnimationFrame(() => {
-                    introLogElement.style.transition =
-                        'transform 0.08s linear';
-                    introLogElement.style.transform =
-                        'translateX(0)';
-                });
-            }
+                    'translateX(0)';
+            });
+        } else {
+            introLogElement.textContent = fullText;
+            introLogElement.style.transform = 'translateX(0)';
         }
 
-        // After the full command is displayed, keep it for 4 seconds.
-        if (commandElapsed >= introCommandDuration) {
-            introLogElement.textContent = fullText;
+        // 全文表示後4秒余韻。
+        if (
+            commandElapsed >=
+            introCommandDuration + introAfterglowDuration
+        ) {
+            introSequenceActive = false;
+            gameStarted = true;
 
-            if (
-                commandElapsed >=
-                introCommandDuration + introAfterglowDuration
-            ) {
-                introSequenceActive = false;
-                gameStarted = true;
-
-                if (joystickContainer) {
-                    joystickContainer.style.display = 'block';
-                }
-
-                if (introFadeElement) {
-                    introFadeElement.classList.remove('is-black');
-                    introFadeElement.style.display = 'none';
-                }
-
-                setAction('idle');
-                updateCameraPosition();
+            if (joystickContainer) {
+                joystickContainer.style.display = 'block';
             }
+
+            if (introFadeElement) {
+                introFadeElement.classList.remove('is-black');
+                introFadeElement.style.display = 'none';
+            }
+
+            setAction('idle');
+            updateCameraPosition();
         }
     }
 
