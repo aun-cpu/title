@@ -660,6 +660,9 @@
     // ctの右側にcat.glbを配置する距離
     const catOffsetFromCt = 2;
 
+    // catの高さ調整（プラスで上、マイナスで下）
+    const catHeightOffset = 0;
+
     const animationFPS = 30;
 
     const clock = new THREE.Clock();
@@ -1161,6 +1164,9 @@
                             catOffsetFromCt
                         )
                     );
+
+                catModel.position.y +=
+                    catHeightOffset;
 
 
                 catModel.traverse(
