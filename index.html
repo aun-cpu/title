@@ -736,14 +736,14 @@
         let amplitude = 0;
         let frequency = 0;
 
-        // STARTから3秒後に小さく1秒間揺らす
-        if (elapsed >= 3.0 && elapsed < 4.0) {
-            amplitude = 0.025;
-            frequency = 38;
-        // STARTから8秒後に大きく1.2秒間揺らす
-        } else if (elapsed >= 8.0 && elapsed < 9.2) {
-            amplitude = 0.16;
-            frequency = 55;
+        // STARTから3秒後に小さく0.5秒間揺らす
+        if (elapsed >= 3.0 && elapsed < 3.5) {
+            amplitude = 0.012;
+            frequency = 32;
+        // STARTから8秒後に大きく0.7秒間揺らす
+        } else if (elapsed >= 8.0 && elapsed < 8.7) {
+            amplitude = 0.08;
+            frequency = 45;
         }
 
         if (amplitude === 0) return;
@@ -804,7 +804,10 @@
                 joystickContainer.style.display = 'none';
             }
 
-            if (actions.idle) {
+            // 操作可能になるまではctのtitleをループさせる
+            if (actions.title) {
+                setAction('title');
+            } else if (actions.idle) {
                 setAction('idle');
             }
 
@@ -2235,6 +2238,7 @@
                 introFadeElement.style.display = 'none';
             }
 
+            // 暗転が終わり、操作可能になったらtitleからidleへ
             setAction('idle');
             updateCameraPosition();
         }
