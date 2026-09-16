@@ -94,6 +94,10 @@
         -webkit-user-select: none;
     }
 
+    #title-bgm {
+        display: none;
+    }
+
     #start-screen {
         position: absolute;
         top: 0;
@@ -203,6 +207,7 @@
 
     <div id="start-screen">
         <img id="title-image" src="./title.png" alt="">
+        <audio id="title-bgm" src="./title.mp3" loop preload="auto"></audio>
         <button id="start-button">&gt;From the start</button>
         <button id="chapter-button">&gt;select chapter</button>
     </div>
@@ -776,6 +781,9 @@
             'start-screen'
         );
 
+    const titleBgmElement =
+        document.getElementById('title-bgm');
+
     const startButtonElement =
         document.getElementById(
             'start-button'
@@ -823,11 +831,45 @@
     }
 
 
+    // タイトル画面ではtitle.mp3をループ再生。
+    // 自動再生が許可されない環境では最初のタップ時に再生を試みる。
+    if (titleBgmElement) {
+        titleBgmElement.loop = true;
+        titleBgmElement.play().catch(() => {});
+    }
+
     startButtonElement.addEventListener(
         'click',
         () => {
 
             if (gameStarted) return;
+
+            // STARTを押したらtitle.mp3を短くフェードアウトして消す。
+            if (titleBgmElement) {
+                const fadeBgm = titleBgmElement;
+                const startVolume = fadeBgm.volume;
+                const fadeStart = performance.now();
+                const fadeDuration = 1200;
+
+                const fadeStep = () => {
+                    const p = Math.min(
+                        (performance.now() - fadeStart) / fadeDuration,
+                        1
+                    );
+                    fadeBgm.volume =
+                        startVolume * (1 - p);
+
+                    if (p < 1) {
+                        requestAnimationFrame(fadeStep);
+                    } else {
+                        fadeBgm.pause();
+                        fadeBgm.currentTime = 0;
+                        fadeBgm.volume = startVolume;
+                    }
+                };
+
+                requestAnimationFrame(fadeStep);
+            }
 
             introSequenceActive = true;
             introSequenceStartTime = performance.now();
