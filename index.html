@@ -207,10 +207,11 @@
 
     <div id="start-screen">
         <img id="title-image" src="./title.png" alt="">
-        <audio id="title-bgm" src="./title.mp3" loop preload="auto"></audio>
         <button id="start-button">&gt;From the start</button>
         <button id="chapter-button">&gt;select chapter</button>
     </div>
+
+    <audio id="title-bgm" src="./title.mp3" loop preload="auto"></audio>
 
     <div id="intro-fade">
         <div id="intro-command">
@@ -832,10 +833,45 @@
 
 
     // タイトル画面ではtitle.mp3をループ再生。
-    // 自動再生が許可されない環境では最初のタップ時に再生を試みる。
+    // ブラウザの自動再生制限により起動時のplay()が拒否された場合は、
+    // タイトル画面への最初のユーザー操作をきっかけに再生する。
     if (titleBgmElement) {
         titleBgmElement.loop = true;
-        titleBgmElement.play().catch(() => {});
+        titleBgmElement.volume = 1.0;
+
+        const tryPlayTitleBgm = () => {
+            if (gameStarted || !titleBgmElement.paused) return;
+
+            const playPromise = titleBgmElement.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(() => {});
+            }
+        };
+
+        // 自動再生可能な環境ではタイトル表示直後から再生。
+        tryPlayTitleBgm();
+
+        // iOS/Safari等で自動再生が拒否された場合のユーザー操作フォールバック。
+        // START以外を最初にタップした場合、そこで再生を開始してループさせる。
+        if (startScreenElement) {
+            startScreenElement.addEventListener(
+                'pointerdown',
+                (event) => {
+                    if (event.target === startButtonElement) return;
+                    tryPlayTitleBgm();
+                },
+                { passive: true }
+            );
+
+            startScreenElement.addEventListener(
+                'touchstart',
+                (event) => {
+                    if (event.target === startButtonElement) return;
+                    tryPlayTitleBgm();
+                },
+                { passive: true }
+            );
+        }
     }
 
     startButtonElement.addEventListener(
@@ -850,6 +886,15 @@
                 const startVolume = fadeBgm.volume;
                 const fadeStart = performance.now();
                 const fadeDuration = 1200;
+
+                // STARTがユーザー操作なので、ここでも再生許可を取得できる。
+                // ただし既に再生中なら、そのままフェードアウトする。
+                if (fadeBgm.paused) {
+                    const playPromise = fadeBgm.play();
+                    if (playPromise && typeof playPromise.catch === 'function') {
+                        playPromise.catch(() => {});
+                    }
+                }
 
                 const fadeStep = () => {
                     const p = Math.min(
