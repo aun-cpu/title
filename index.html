@@ -129,6 +129,31 @@
     #intro-fade.is-black {
         opacity: 1;
     }
+
+    #intro-command {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        font-family: 'Press Start 2P', 'MS Gothic', monospace;
+        font-size: clamp(10px, 1.45vw, 18px);
+        line-height: 1.9;
+        letter-spacing: 0.02em;
+        pointer-events: none;
+    }
+
+    #intro-processing {
+        white-space: nowrap;
+    }
+
+    #intro-log {
+        display: none;
+        width: min(90vw, 1000px);
+        text-align: left;
+        white-space: pre-wrap;
+    }
     #start-button,
     #chapter-button {
         margin-top: 24px;
@@ -182,7 +207,12 @@
         <button id="chapter-button">&gt;select chapter</button>
     </div>
 
-    <div id="intro-fade"></div>
+    <div id="intro-fade">
+        <div id="intro-command">
+            <div id="intro-processing">Processing information...</div>
+            <div id="intro-log"></div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -716,6 +746,24 @@
     let introSequenceActive = false;
     let introSequenceStartTime = 0;
     let introFadeStarted = false;
+    let introCommandStarted = false;
+
+    const introProcessingElement =
+        document.getElementById('intro-processing');
+    const introLogElement =
+        document.getElementById('intro-log');
+
+    const introCommandLines = [
+        'Command confirmed.',
+        'Origin: UNKNOWN',
+        'Timestamp: UNKNOWN',
+        'Location: %＊〒|^^##',
+        'Execution authorization: GRANTED',
+        'Enforcement commencing.'
+    ];
+    const introProcessingDuration = 5.0;
+    const introCommandDuration = 10.0;
+    const introEndTime = introProcessingDuration + introCommandDuration;
 
     const startScreenElement =
         document.getElementById(
@@ -778,6 +826,15 @@
             introSequenceActive = true;
             introSequenceStartTime = performance.now();
             introFadeStarted = false;
+            introCommandStarted = false;
+
+            if (introFadeElement) {
+                introFadeElement.classList.add('is-black');
+                introFadeElement.style.display = 'block';
+            }
+
+            // 操作可能になるまでctのtitleをループさせる
+            setAction('title');
 
             if (startScreenElement) {
 
@@ -2215,17 +2272,53 @@
         const elapsed =
             (performance.now() - introSequenceStartTime) / 1000;
 
-        // STARTから8秒後：大きな揺れ＋暗転
-        if (elapsed >= 8.0 && !introFadeStarted) {
-            introFadeStarted = true;
+        // 暗転は開始直後から維持。最初の5秒は文字を点滅。
+        if (elapsed < introProcessingDuration) {
+            introProcessingElement.style.display = 'block';
+            introLogElement.style.display = 'none';
 
-            if (introFadeElement) {
-                introFadeElement.classList.add('is-black');
+            // 0.5秒周期で点滅
+            introProcessingElement.style.visibility =
+                Math.floor(elapsed / 0.5) % 2 === 0
+                    ? 'visible'
+                    : 'hidden';
+            return;
+        }
+
+        // 5秒経過後、コマンド列を10秒かけて1文字ずつ表示。
+        if (!introCommandStarted) {
+            introCommandStarted = true;
+            introProcessingElement.style.display = 'none';
+            introLogElement.style.display = 'block';
+            introLogElement.textContent = '';
+        }
+
+        const commandElapsed = elapsed - introProcessingDuration;
+        const fullText = introCommandLines
+            .map(line => '- ' + line)
+            .join('\n');
+        const progress = Math.min(commandElapsed / introCommandDuration, 1);
+        const visibleCount = Math.floor(fullText.length * progress);
+
+        // 文字を右側から一文字ずつ出現させる。
+        const visibleText = fullText.slice(0, visibleCount);
+        introLogElement.textContent = visibleText;
+
+        if (visibleCount < fullText.length) {
+            const chars = Array.from(fullText);
+            const currentChar = chars[visibleCount] || '';
+            if (currentChar) {
+                // 新しく出た文字だけ右からスライドするように見せる。
+                introLogElement.style.transform = 'translateX(8px)';
+                requestAnimationFrame(() => {
+                    introLogElement.style.transition = 'transform 0.08s linear';
+                    introLogElement.style.transform = 'translateX(0)';
+                });
             }
         }
 
-        // STARTから9秒後：暗転後に通常操作へ
-        if (elapsed >= 9.0) {
+        // 全文表示後に暗転を解除して操作開始。
+        if (elapsed >= introEndTime) {
             introSequenceActive = false;
             gameStarted = true;
 
@@ -2238,7 +2331,6 @@
                 introFadeElement.style.display = 'none';
             }
 
-            // 暗転が終わり、操作可能になったらtitleからidleへ
             setAction('idle');
             updateCameraPosition();
         }
