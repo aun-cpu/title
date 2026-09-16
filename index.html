@@ -212,7 +212,7 @@
     </div>
 
     <audio id="title-bgm" src="./title.mp3" loop preload="auto"></audio>
-    <audio id="pi-se" src="./pi.mp3" preload="auto"></audio>
+    <audio id="pi-se" src="./pipim.mp3" preload="auto"></audio>
 
     <div id="intro-fade">
         <div id="intro-command">
@@ -789,23 +789,32 @@
     const piSeElement =
         document.getElementById('pi-se');
 
+    let piSeLoopActive = false;
+
     function playPiSe() {
+    if (!piSeElement) return;
+    piSeElement.loop = false;
+    piSeElement.currentTime = 0;
+    piSeElement.volume = 1.0;
+    const promise = piSeElement.play();
+    if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+}
+
+function startPiSeLoop() {
+        if (!piSeElement || piSeLoopActive) return;
+        piSeLoopActive = true;
+        piSeElement.loop = true;
+        piSeElement.currentTime = 0;
+        piSeElement.volume = 1.0;
+        const promise = piSeElement.play();
+        if (promise && typeof promise.catch === 'function') promise.catch(() => {});
+    }
+
+    function stopPiSeLoop() {
         if (!piSeElement) return;
-
-        // 文字が速く出ても各文字の音を切らないよう、
-        // 毎回複製したAudioを再生する。
-        const sound = piSeElement.cloneNode(true);
-        sound.currentTime = 0;
-        sound.volume = 1.0;
-
-        const promise = sound.play();
-        if (promise && typeof promise.catch === 'function') {
-            promise.catch(() => {});
-        }
-
-        sound.addEventListener('ended', () => {
-            sound.remove();
-        });
+        piSeLoopActive = false;
+        piSeElement.pause();
+        piSeElement.currentTime = 0;
     }
 
     const startButtonElement =
@@ -906,8 +915,6 @@
         'click',
         () => {
 
-            playPiSe();
-
             if (gameStarted) return;
 
             // STARTを押したらtitle.mp3を短くフェードアウトして消す。
@@ -947,6 +954,7 @@
             }
 
             introSequenceActive = true;
+            playPiSe();
             introSequenceStartTime = performance.now();
             introFadeStarted = false;
             introCommandStarted = false;
@@ -2457,21 +2465,13 @@
         const visibleCount =
             Math.floor(fullText.length * progress);
 
-        const previousVisibleCount =
-            Number.isFinite(updateIntroSequence.lastVisibleCount)
-                ? updateIntroSequence.lastVisibleCount
-                : 0;
-
         introLogElement.textContent =
             fullText.slice(0, visibleCount);
 
-        // 新しく表示された1文字ごとにpi.mp3を鳴らす。
-        if (visibleCount > previousVisibleCount) {
-            for (let i = previousVisibleCount; i < visibleCount; i++) {
-                playPiSe();
-            }
+        // 文字が出始めたらpipim.mp3をループし、全文表示で停止する。
+        if (visibleCount > 0 && !piSeLoopActive) {
+            startPiSeLoop();
         }
-        updateIntroSequence.lastVisibleCount = visibleCount;
 
         // 表示中は右から少しだけスライド。
         if (visibleCount < fullText.length) {
@@ -2493,6 +2493,7 @@
             commandElapsed >=
             introCommandDuration + introAfterglowDuration
         ) {
+            stopPiSeLoop();
             introSequenceActive = false;
             gameStarted = true;
 
