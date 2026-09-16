@@ -618,6 +618,10 @@
     // 注視点のずらし量（大きいほど右端に寄る）
     const titleRightEdgeOffset = 1.3;
 
+    // ct1のローカル前方軸の符号（モデルの向きに合わせて調整）
+    // 1なら(0,0,1)、-1なら(0,0,-1)が正面方向
+    const modelForwardSign = -1;
+
     const initialLeftYawOffset =
         Math.PI / 2;
 
@@ -1190,7 +1194,7 @@
             // ct1の正面（顔が見える向き）に
             // カメラを配置する
             const forwardDir =
-                new THREE.Vector3(0, 0, 1)
+                new THREE.Vector3(0, 0, modelForwardSign)
                     .applyQuaternion(
                         targetModel.quaternion
                     );
@@ -1217,31 +1221,33 @@
                 .copy(targetPosition)
                 .add(offset);
 
-            // ct1が画面中央ではなく右端寄りに映るよう、
-            // 注視点をct1から見て左側へずらす
-            const viewDirection =
+            // ct1を真正面から見る向き（回転させない）を
+            // 先に確定させておく
+            const straightViewDirection =
                 targetPosition.clone()
                     .sub(camera.position)
                     .normalize();
 
+            // 画面上でct1を右寄りに見せるため、
+            // カメラの向きは変えずに位置だけを
+            // 左へ平行移動させる（レンズシフトと同じ考え方）
             const cameraRight =
                 new THREE.Vector3()
                     .crossVectors(
-                        viewDirection,
+                        straightViewDirection,
                         new THREE.Vector3(0, 1, 0)
                     )
                     .normalize();
 
-            const titleLookTarget =
-                targetPosition.clone()
-                    .sub(
-                        cameraRight.multiplyScalar(
-                            titleRightEdgeOffset
-                        )
-                    );
+            camera.position.sub(
+                cameraRight.multiplyScalar(
+                    titleRightEdgeOffset
+                )
+            );
 
             camera.lookAt(
-                titleLookTarget
+                camera.position.clone()
+                    .add(straightViewDirection)
             );
 
             return;
