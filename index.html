@@ -115,7 +115,8 @@
         opacity: 0;
         pointer-events: none;
     }
-    #start-button {
+    #start-button,
+    #chapter-button {
         margin-top: 24px;
         padding: 0;
         background: transparent;
@@ -131,7 +132,11 @@
         pointer-events: auto;
         animation: start-button-blink 1s steps(1, end) infinite;
     }
-    #start-button:active {
+    #chapter-button {
+        margin-top: 16px;
+    }
+    #start-button:active,
+    #chapter-button:active {
         transform: scale(0.95);
     }
     @keyframes start-button-blink {
@@ -160,6 +165,7 @@
     <div id="start-screen">
         <img id="title-image" src="./title.png" alt="">
         <button id="start-button">&gt;From the start</button>
+        <button id="chapter-button">&gt;select chapter</button>
     </div>
 </div>
 
