@@ -212,6 +212,7 @@
     </div>
 
     <audio id="title-bgm" src="./title.mp3" loop preload="auto"></audio>
+    <audio id="pi-se" src="./pi.mp3" preload="auto"></audio>
 
     <div id="intro-fade">
         <div id="intro-command">
@@ -785,9 +786,36 @@
     const titleBgmElement =
         document.getElementById('title-bgm');
 
+    const piSeElement =
+        document.getElementById('pi-se');
+
+    function playPiSe() {
+        if (!piSeElement) return;
+
+        // 文字が速く出ても各文字の音を切らないよう、
+        // 毎回複製したAudioを再生する。
+        const sound = piSeElement.cloneNode(true);
+        sound.currentTime = 0;
+        sound.volume = 1.0;
+
+        const promise = sound.play();
+        if (promise && typeof promise.catch === 'function') {
+            promise.catch(() => {});
+        }
+
+        sound.addEventListener('ended', () => {
+            sound.remove();
+        });
+    }
+
     const startButtonElement =
         document.getElementById(
             'start-button'
+        );
+
+    const chapterButtonElement =
+        document.getElementById(
+            'chapter-button'
         );
 
     const introFadeElement =
@@ -878,6 +906,8 @@
         'click',
         () => {
 
+            playPiSe();
+
             if (gameStarted) return;
 
             // STARTを押したらtitle.mp3を短くフェードアウトして消す。
@@ -920,6 +950,7 @@
             introSequenceStartTime = performance.now();
             introFadeStarted = false;
             introCommandStarted = false;
+            updateIntroSequence.lastVisibleCount = 0;
 
             // 2回目の爆発までは暗転しない。
             if (introFadeElement) {
@@ -966,6 +997,15 @@
         }
     );
 
+
+    if (chapterButtonElement) {
+        chapterButtonElement.addEventListener(
+            'click',
+            () => {
+                playPiSe();
+            }
+        );
+    }
 
     // ============================================================
     // 移動・カメラ設定
@@ -2417,8 +2457,21 @@
         const visibleCount =
             Math.floor(fullText.length * progress);
 
+        const previousVisibleCount =
+            Number.isFinite(updateIntroSequence.lastVisibleCount)
+                ? updateIntroSequence.lastVisibleCount
+                : 0;
+
         introLogElement.textContent =
             fullText.slice(0, visibleCount);
+
+        // 新しく表示された1文字ごとにpi.mp3を鳴らす。
+        if (visibleCount > previousVisibleCount) {
+            for (let i = previousVisibleCount; i < visibleCount; i++) {
+                playPiSe();
+            }
+        }
+        updateIntroSequence.lastVisibleCount = visibleCount;
 
         // 表示中は右から少しだけスライド。
         if (visibleCount < fullText.length) {
