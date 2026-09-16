@@ -115,6 +115,20 @@
         opacity: 0;
         pointer-events: none;
     }
+
+    #intro-fade {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: #000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 1s ease;
+    }
+
+    #intro-fade.is-black {
+        opacity: 1;
+    }
     #start-button,
     #chapter-button {
         margin-top: 24px;
@@ -167,6 +181,8 @@
         <button id="start-button">&gt;From the start</button>
         <button id="chapter-button">&gt;select chapter</button>
     </div>
+
+    <div id="intro-fade"></div>
 </div>
 
 <script>
@@ -696,6 +712,11 @@
 
     let gameStarted = false;
 
+    // START直後の演出中は操作を受け付けない
+    let introSequenceActive = false;
+    let introSequenceStartTime = 0;
+    let introFadeStarted = false;
+
     const startScreenElement =
         document.getElementById(
             'start-screen'
@@ -706,6 +727,47 @@
             'start-button'
         );
 
+    const introFadeElement =
+        document.getElementById('intro-fade');
+
+    function applyIntroShake(elapsed) {
+        if (!introSequenceActive || !targetModel) return;
+
+        let amplitude = 0;
+        let frequency = 0;
+
+        // STARTから3秒後に小さく1秒間揺らす
+        if (elapsed >= 3.0 && elapsed < 4.0) {
+            amplitude = 0.025;
+            frequency = 38;
+        // STARTから8秒後に大きく1.2秒間揺らす
+        } else if (elapsed >= 8.0 && elapsed < 9.2) {
+            amplitude = 0.16;
+            frequency = 55;
+        }
+
+        if (amplitude === 0) return;
+
+        const sx = Math.sin(elapsed * frequency) * amplitude;
+        const sy = Math.cos(elapsed * frequency * 1.13) * amplitude * 0.7;
+        const sz = Math.sin(elapsed * frequency * 0.83) * amplitude * 0.35;
+
+        const right = new THREE.Vector3()
+            .setFromMatrixColumn(camera.matrixWorld, 0)
+            .normalize();
+        const up = new THREE.Vector3()
+            .setFromMatrixColumn(camera.matrixWorld, 1)
+            .normalize();
+        const forward = new THREE.Vector3()
+            .setFromMatrixColumn(camera.matrixWorld, 2)
+            .normalize();
+
+        camera.position
+            .addScaledVector(right, sx)
+            .addScaledVector(up, sy)
+            .addScaledVector(forward, sz);
+    }
+
 
     startButtonElement.addEventListener(
         'click',
@@ -713,7 +775,9 @@
 
             if (gameStarted) return;
 
-            gameStarted = true;
+            introSequenceActive = true;
+            introSequenceStartTime = performance.now();
+            introFadeStarted = false;
 
             if (startScreenElement) {
 
@@ -735,15 +799,15 @@
                 }, 500);
             }
 
+            // 演出中は操作UIを表示しない
             if (joystickContainer) {
-                joystickContainer.style.display =
-                    'block';
+                joystickContainer.style.display = 'none';
             }
 
-            setAction('idle');
+            if (actions.idle) {
+                setAction('idle');
+            }
 
-            // STARTを押した瞬間に
-            // 通常のカメラ位置へ戻す
             updateCameraPosition();
         }
     );
@@ -1746,7 +1810,7 @@
 
     function handleRightScreenStart(e) {
 
-        if (!gameStarted) return;
+        if (!gameStarted || introSequenceActive) return;
 
         if (
             e.target.closest(
@@ -2139,6 +2203,45 @@
 
 
     // ============================================================
+    // START直後の演出
+    // ============================================================
+
+    function updateIntroSequence() {
+        if (!introSequenceActive) return;
+
+        const elapsed =
+            (performance.now() - introSequenceStartTime) / 1000;
+
+        // STARTから8秒後：大きな揺れ＋暗転
+        if (elapsed >= 8.0 && !introFadeStarted) {
+            introFadeStarted = true;
+
+            if (introFadeElement) {
+                introFadeElement.classList.add('is-black');
+            }
+        }
+
+        // STARTから9秒後：暗転後に通常操作へ
+        if (elapsed >= 9.0) {
+            introSequenceActive = false;
+            gameStarted = true;
+
+            if (joystickContainer) {
+                joystickContainer.style.display = 'block';
+            }
+
+            if (introFadeElement) {
+                introFadeElement.classList.remove('is-black');
+                introFadeElement.style.display = 'none';
+            }
+
+            setAction('idle');
+            updateCameraPosition();
+        }
+    }
+
+
+    // ============================================================
     // メインループ
     // ============================================================
 
@@ -2174,6 +2277,14 @@
         // START後だけカメラをct1へ追従
         if (gameStarted) {
             updateCameraPosition();
+        }
+
+        updateIntroSequence();
+
+        if (introSequenceActive) {
+            const introElapsed =
+                (performance.now() - introSequenceStartTime) / 1000;
+            applyIntroShake(introElapsed);
         }
 
 
