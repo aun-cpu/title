@@ -215,6 +215,7 @@
 <audio id="wake-se" src="./wake.mp3" preload="auto"></audio>
     <audio id="pi-se" src="./pi.mp3" preload="auto"></audio>
     <audio id="pipi-se" src="./pipi.mp3" preload="auto"></audio>
+    <audio id="wake-se" src="./wake.mp3" preload="auto"></audio>
 
     <div id="intro-fade">
         <div id="intro-command">
@@ -794,6 +795,46 @@
     const pipiSeElement =
         document.getElementById('pipi-se');
 
+    const wakeSeElement =
+        document.getElementById('wake-se');
+
+    function playWake() {
+        if (!wakeSeElement) return;
+        wakeSeElement.pause();
+        wakeSeElement.currentTime = 0;
+        wakeSeElement.loop = false;
+        wakeSeElement.volume = 1.0;
+        const promise = wakeSeElement.play();
+        if (promise && typeof promise.catch === 'function') {
+            promise.catch((error) => {
+                console.warn('wake.mp3 の再生に失敗しました:', error);
+            });
+        }
+    }
+
+    function unlockAudioElement(element) {
+        if (!element) return;
+        const originalVolume = element.volume;
+        element.muted = true;
+        element.volume = 0;
+        element.currentTime = 0;
+        const promise = element.play();
+        if (promise && typeof promise.then === 'function') {
+            promise.then(() => {
+                element.pause();
+                element.currentTime = 0;
+                element.muted = false;
+                element.volume = originalVolume;
+            }).catch(() => {
+                element.muted = false;
+                element.volume = originalVolume;
+            });
+        } else {
+            element.muted = false;
+            element.volume = originalVolume;
+        }
+    }
+
     function playPi() {
         if (!piSeElement) return;
         piSeElement.pause();
@@ -924,6 +965,15 @@
         () => {
 
             if (gameStarted) return;
+
+            // STARTのユーザー操作中に効果音をアンロックする。
+            // これによりiOS/Safariでも後から非同期にpipi.mp3を再生しやすくする。
+            unlockAudioElement(piSeElement);
+            unlockAudioElement(pipiSeElement);
+            unlockAudioElement(wakeSeElement);
+
+            // STARTを押した瞬間にwake.mp3を1回だけ再生する。
+            playWake();
 
             // STARTを押したらtitle.mp3を短くフェードアウトして消す。
             if (titleBgmElement) {
