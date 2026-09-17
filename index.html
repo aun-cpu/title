@@ -3281,12 +3281,22 @@
 
 
     // ============================================================
-    // bgti1 → bgti2 の入れ替え
-    // 黒いロード画面を挟んでbgti2.glbを読み込み、
+    // bgti1 → bgti2 のマップ移動
+    // 黒画面を挟んでbgti2.glbへ切り替え、
+    // プレイヤーを新しいマップの出現位置へ移動させる。
     // bgti1は表示しないようにする
     // ============================================================
 
-    function loadBgti2AndReplaceBgti1() {
+    // 新マップ（bgti2）での出現位置（デフォルト）
+    const defaultBgti2SpawnX = 0;
+    const defaultBgti2SpawnZ = 0;
+    const defaultBgti2SpawnGroundY = 0;
+
+    function loadBgti2AndReplaceBgti1(
+        spawnX,
+        spawnZ,
+        spawnGroundY
+    ) {
 
         loader.load(
             './bgti2.glb',
@@ -3340,6 +3350,33 @@
                     bgti1Scene = null;
                 }
 
+                // ct1を新しいマップの出現位置へ移動させる
+                // （「読み込み」ではなく「移動」の感覚を出す）
+                if (targetModel) {
+
+                    targetModel.position.x =
+                        spawnX;
+
+                    targetModel.position.z =
+                        spawnZ;
+
+                    targetModel.position.y =
+                        spawnGroundY;
+
+                    const groundHit =
+                        probeGroundHeight(
+                            spawnX,
+                            spawnZ,
+                            spawnGroundY
+                        );
+
+                    if (groundHit) {
+
+                        targetModel.position.y =
+                            groundHit.point.y;
+                    }
+                }
+
                 hideBlackLoadingScreen();
             },
 
@@ -3358,8 +3395,14 @@
     }
 
     // マーカーから呼ばれる入口。
-    // 黒画面へフェードしてからbgti2を読み込む。
-    function triggerBgti2Swap() {
+    // 黒画面へフェードしてからマップを切り替え、
+    // spawnX, spawnZ, spawnGroundY で指定した位置に
+    // プレイヤーを出現させる（省略時は原点）。
+    function triggerBgti2Swap(
+        spawnX,
+        spawnZ,
+        spawnGroundY
+    ) {
 
         if (bgti2Loaded) {
             return;
@@ -3367,11 +3410,30 @@
 
         bgti2Loaded = true;
 
+        const resolvedSpawnX =
+            (typeof spawnX === 'number')
+                ? spawnX
+                : defaultBgti2SpawnX;
+
+        const resolvedSpawnZ =
+            (typeof spawnZ === 'number')
+                ? spawnZ
+                : defaultBgti2SpawnZ;
+
+        const resolvedSpawnGroundY =
+            (typeof spawnGroundY === 'number')
+                ? spawnGroundY
+                : defaultBgti2SpawnGroundY;
+
         showBlackLoadingScreen();
 
         setTimeout(
             () => {
-                loadBgti2AndReplaceBgti1();
+                loadBgti2AndReplaceBgti1(
+                    resolvedSpawnX,
+                    resolvedSpawnZ,
+                    resolvedSpawnGroundY
+                );
             },
             blackLoadingFadeDurationMs
         );
@@ -3407,7 +3469,7 @@
         defaultInteractRadius,
         defaultInteractText,
         function () {
-            triggerBgti2Swap();
+            triggerBgti2Swap(0, 0, 0);
         }
     );
 
