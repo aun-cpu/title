@@ -3118,6 +3118,39 @@
         }
     }
 
+    // 全ての浮遊マーカーを消去する（3Dオブジェクトとラベルの両方）。
+    // マップを切り替えるときなど、マーカー構成を
+    // まっさらな状態に初期化したいときに呼ぶ。
+    function clearFloatingMarkers() {
+
+        for (
+            let i = 0;
+            i < floatingMarkers.length;
+            i++
+        ) {
+
+            const marker =
+                floatingMarkers[i];
+
+            scene.remove(marker);
+
+            const label =
+                marker.userData.label;
+
+            if (
+                label &&
+                label.parentNode
+            ) {
+
+                label.parentNode.removeChild(
+                    label
+                );
+            }
+        }
+
+        floatingMarkers.length = 0;
+    }
+
 
     // ============================================================
     // interactダイアログ（再利用可能）
@@ -3349,6 +3382,9 @@
 
                     bgti1Scene = null;
                 }
+
+                // 旧マップのマーカーは初期化（全て消去）する
+                clearFloatingMarkers();
 
                 // ct1を新しいマップの出現位置へ移動させる
                 // （「読み込み」ではなく「移動」の感覚を出す）
