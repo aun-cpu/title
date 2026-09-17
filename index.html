@@ -1277,14 +1277,17 @@
                             true;
                     }
 
-                    return new THREE.MeshBasicMaterial({
+                    return new THREE.MeshStandardMaterial({
                         color: 0xffffff,
                         wireframe: false,
                         transparent: true,
                         opacity: 0.99,
                         map: material.map || null,
                         vertexColors:
-                            material.vertexColors
+                            material.vertexColors,
+                        roughness: 1.0,
+                        metalness: 0.0,
+                        envMapIntensity: 0.15
                     });
 
                 });
@@ -1295,6 +1298,7 @@
                     : newMaterials[0];
 
             child.receiveShadow = true;
+            child.castShadow = true;
 
             child.frustumCulled = true;
 
