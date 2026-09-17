@@ -294,6 +294,20 @@
         text-shadow: 2px 2px 0 #000;
         white-space: pre-wrap;
     }
+
+    #black-loading-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 90;
+        background: #000000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.5s ease;
+    }
+    #black-loading-screen.is-visible {
+        opacity: 1;
+        pointer-events: auto;
+    }
 </style>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -339,6 +353,8 @@
     <div id="interact-dialog">
         <div id="interact-dialog-text"></div>
     </div>
+
+    <div id="black-loading-screen"></div>
 </div>
 
 <script>
@@ -844,6 +860,11 @@
     let bgModel = null;
     let catModel = null;
 
+    // 差し替え可能な背景パーツ（bgti1→bgti2の入れ替え用）
+    let bgti1Scene = null;
+    let bgti2Scene = null;
+    let bgti2Loaded = false;
+
     let mixer = null;
     let catMixer = null;
 
@@ -1322,6 +1343,8 @@
                         partScene
                     );
 
+                    bgti1Scene = partScene;
+
                 } catch (setupError) {
 
                     console.error(
@@ -1394,6 +1417,28 @@
             object: partScene,
             sphere: sphere
         });
+    }
+
+    // 背景パーツをカリング対象から外す
+    // （partSceneをbgGroupから取り除く際にあわせて呼ぶ）
+    function unregisterBgCullingPart(
+        partScene
+    ) {
+
+        for (
+            let i = bgCullingParts.length - 1;
+            i >= 0;
+            i--
+        ) {
+
+            if (
+                bgCullingParts[i].object ===
+                partScene
+            ) {
+
+                bgCullingParts.splice(i, 1);
+            }
+        }
     }
 
 
@@ -2878,7 +2923,8 @@
         groundY,
         heightAboveGround,
         interactRadius,
-        interactText
+        interactText,
+        onInteract
     ) {
 
         const markerGeometry =
@@ -2927,6 +2973,15 @@
         marker.userData.interactText =
             interactText || defaultInteractText;
 
+        // このマーカーを押したときの処理。
+        // 省略時は「it's unusable.」のダイアログを開く。
+        marker.userData.onInteract =
+            (typeof onInteract === 'function')
+                ? onInteract
+                : function () {
+                    openInteractDialog();
+                };
+
         scene.add(marker);
 
         // 近づいたときに出す「interact」ラベルを用意しておく
@@ -2953,7 +3008,7 @@
                 e.preventDefault();
                 e.stopPropagation();
 
-                openInteractDialog();
+                marker.userData.onInteract();
             },
             { passive: false }
         );
@@ -3190,6 +3245,139 @@
     );
 
 
+    // ============================================================
+    // 黒いロード画面（再利用可能）
+    // ============================================================
+
+    const blackLoadingScreenElement =
+        document.getElementById(
+            'black-loading-screen'
+        );
+
+    // CSSのtransition時間と合わせる（ミリ秒）
+    const blackLoadingFadeDurationMs = 500;
+
+    function showBlackLoadingScreen() {
+
+        if (!blackLoadingScreenElement) {
+            return;
+        }
+
+        blackLoadingScreenElement.classList.add(
+            'is-visible'
+        );
+    }
+
+    function hideBlackLoadingScreen() {
+
+        if (!blackLoadingScreenElement) {
+            return;
+        }
+
+        blackLoadingScreenElement.classList.remove(
+            'is-visible'
+        );
+    }
+
+
+    // ============================================================
+    // bgti1 → bgti2 の入れ替え
+    // 黒いロード画面を挟んでbgti2.glbを読み込み、
+    // bgti1は表示しないようにする
+    // ============================================================
+
+    function loadBgti2AndReplaceBgti1() {
+
+        loader.load(
+            './bgti2.glb',
+
+            function (gltf) {
+
+                try {
+
+                    const partScene =
+                        gltf.scene;
+
+                    partScene.scale.set(
+                        1,
+                        1,
+                        1
+                    );
+
+                    setupBgMaterials(
+                        partScene
+                    );
+
+                    bgGroup.add(
+                        partScene
+                    );
+
+                    registerBgCullingPart(
+                        partScene
+                    );
+
+                    bgti2Scene = partScene;
+
+                } catch (setupError) {
+
+                    console.error(
+                        'bgti2.glb のセットアップエラー:',
+                        setupError
+                    );
+                }
+
+                // bgti1は完全に取り除いて表示しないようにする
+                if (bgti1Scene) {
+
+                    bgGroup.remove(
+                        bgti1Scene
+                    );
+
+                    unregisterBgCullingPart(
+                        bgti1Scene
+                    );
+
+                    bgti1Scene = null;
+                }
+
+                hideBlackLoadingScreen();
+            },
+
+            undefined,
+
+            function (error) {
+
+                console.error(
+                    'bgti2.glb の読み込みエラー:',
+                    error
+                );
+
+                hideBlackLoadingScreen();
+            }
+        );
+    }
+
+    // マーカーから呼ばれる入口。
+    // 黒画面へフェードしてからbgti2を読み込む。
+    function triggerBgti2Swap() {
+
+        if (bgti2Loaded) {
+            return;
+        }
+
+        bgti2Loaded = true;
+
+        showBlackLoadingScreen();
+
+        setTimeout(
+            () => {
+                loadBgti2AndReplaceBgti1();
+            },
+            blackLoadingFadeDurationMs
+        );
+    }
+
+
     createFloatingTriangleMarker(
         -7.2,
         3.8,
@@ -3215,7 +3403,12 @@
         -6.8,
         13.1,
         8.3,
-        1.0
+        1.0,
+        defaultInteractRadius,
+        defaultInteractText,
+        function () {
+            triggerBgti2Swap();
+        }
     );
 
 
