@@ -729,12 +729,13 @@
     // ライト
     // ============================================================
 
-    scene.add(
+    const ambientLight =
         new THREE.AmbientLight(
             0xffffff,
             0.3
-        )
-    );
+        );
+
+    scene.add(ambientLight);
 
     const dirLight =
         new THREE.DirectionalLight(
@@ -860,10 +861,9 @@
     let bgModel = null;
     let catModel = null;
 
-    // 差し替え可能な背景パーツ（bgti1→bgti2の入れ替え用）
+    // 差し替え可能な背景パーツ（bgti1⇔bgti2の切り替え用）
     let bgti1Scene = null;
     let bgti2Scene = null;
-    let bgti2Loaded = false;
 
     let mixer = null;
     let catMixer = null;
@@ -1438,6 +1438,42 @@
 
                 bgCullingParts.splice(i, 1);
             }
+        }
+    }
+
+    // 背景パーツをシーンに出したり引っ込めたりする。
+    // 既に読み込んである背景を使い回して見せる/隠すために使う
+    // （bgGroupへの追加・削除とカリング登録をまとめて行う）
+    function setBgSceneVisible(
+        partScene,
+        isVisible
+    ) {
+
+        if (!partScene) return;
+
+        const isCurrentlyShown =
+            bgGroup.children.indexOf(
+                partScene
+            ) !== -1;
+
+        if (isVisible && !isCurrentlyShown) {
+
+            bgGroup.add(partScene);
+
+            registerBgCullingPart(
+                partScene
+            );
+
+        } else if (
+            !isVisible &&
+            isCurrentlyShown
+        ) {
+
+            bgGroup.remove(partScene);
+
+            unregisterBgCullingPart(
+                partScene
+            );
         }
     }
 
@@ -3314,22 +3350,144 @@
 
 
     // ============================================================
-    // bgti1 → bgti2 のマップ移動
-    // 黒画面を挟んでbgti2.glbへ切り替え、
-    // プレイヤーを新しいマップの出現位置へ移動させる。
-    // bgti1は表示しないようにする
+    // ステージごとの明るさ（再利用可能）
     // ============================================================
 
-    // 新マップ（bgti2）での出現位置（デフォルト）
-    const defaultBgti2SpawnX = 0;
-    const defaultBgti2SpawnZ = 0;
-    const defaultBgti2SpawnGroundY = 0;
+    const stage1LightSettings = {
+        ambient: 0.3,
+        dir: 2.6,
+        fill: 1.0,
+        exposure: 0.95
+    };
 
-    function loadBgti2AndReplaceBgti1(
-        spawnX,
-        spawnZ,
-        spawnGroundY
+    // ステージ2はかなり暗め
+    const stage2LightSettings = {
+        ambient: 0.04,
+        dir: 0.35,
+        fill: 0.1,
+        exposure: 0.4
+    };
+
+    function applyStageLightSettings(
+        settings
     ) {
+
+        ambientLight.intensity =
+            settings.ambient;
+
+        dirLight.intensity =
+            settings.dir;
+
+        fillLight.intensity =
+            settings.fill;
+
+        renderer.toneMappingExposure =
+            settings.exposure;
+    }
+
+
+    // ============================================================
+    // ステージ1 ⇔ ステージ2 の切り替え（再利用可能）
+    // 黒画面を挟んで背景・明るさ・マーカーを丸ごと入れ替え、
+    // プレイヤーを新しい出現位置へ移動させる。
+    // ============================================================
+
+    // 現在のステージ（1 or 2）。切り替え中の多重発火防止も兼ねる
+    let currentStage = 1;
+
+    function movePlayerTo(
+        x,
+        z,
+        groundY
+    ) {
+
+        if (!targetModel) return;
+
+        targetModel.position.x = x;
+        targetModel.position.z = z;
+        targetModel.position.y = groundY;
+
+        const groundHit =
+            probeGroundHeight(
+                x,
+                z,
+                groundY
+            );
+
+        if (groundHit) {
+
+            targetModel.position.y =
+                groundHit.point.y;
+        }
+    }
+
+    // ステージ1のマーカー構成
+    function createStage1Markers() {
+
+        createFloatingTriangleMarker(
+            -7.2,
+            3.8,
+            0,
+            1.0
+        );
+
+        createFloatingTriangleMarker(
+            0,
+            12.9,
+            0,
+            1.0
+        );
+
+        createFloatingTriangleMarker(
+            6.9,
+            6.5,
+            0,
+            1.0
+        );
+
+        createFloatingTriangleMarker(
+            -6.8,
+            13.1,
+            8.3,
+            1.0,
+            defaultInteractRadius,
+            defaultInteractText,
+            function () {
+                goToStage2(0, 0, 0);
+            }
+        );
+    }
+
+    // ステージ2のマーカー構成
+    function createStage2Markers() {
+
+        createFloatingTriangleMarker(
+            -14.3,
+            -3.1,
+            0,
+            1.0,
+            defaultInteractRadius,
+            defaultInteractText,
+            function () {
+                goToStage1(
+                    -6.8,
+                    13.1,
+                    8.3
+                );
+            }
+        );
+    }
+
+    // bgti2.glbをまだ読み込んでいなければ読み込む
+    // （2回目以降は読み込み済みのものをそのまま使い回す）
+    function ensureBgti2Loaded(
+        onReady
+    ) {
+
+        if (bgti2Scene) {
+            onReady();
+            return;
+        }
 
         loader.load(
             './bgti2.glb',
@@ -3351,14 +3509,6 @@
                         partScene
                     );
 
-                    bgGroup.add(
-                        partScene
-                    );
-
-                    registerBgCullingPart(
-                        partScene
-                    );
-
                     bgti2Scene = partScene;
 
                 } catch (setupError) {
@@ -3369,51 +3519,7 @@
                     );
                 }
 
-                // bgti1は完全に取り除いて表示しないようにする
-                if (bgti1Scene) {
-
-                    bgGroup.remove(
-                        bgti1Scene
-                    );
-
-                    unregisterBgCullingPart(
-                        bgti1Scene
-                    );
-
-                    bgti1Scene = null;
-                }
-
-                // 旧マップのマーカーは初期化（全て消去）する
-                clearFloatingMarkers();
-
-                // ct1を新しいマップの出現位置へ移動させる
-                // （「読み込み」ではなく「移動」の感覚を出す）
-                if (targetModel) {
-
-                    targetModel.position.x =
-                        spawnX;
-
-                    targetModel.position.z =
-                        spawnZ;
-
-                    targetModel.position.y =
-                        spawnGroundY;
-
-                    const groundHit =
-                        probeGroundHeight(
-                            spawnX,
-                            spawnZ,
-                            spawnGroundY
-                        );
-
-                    if (groundHit) {
-
-                        targetModel.position.y =
-                            groundHit.point.y;
-                    }
-                }
-
-                hideBlackLoadingScreen();
+                onReady();
             },
 
             undefined,
@@ -3425,89 +3531,108 @@
                     error
                 );
 
-                hideBlackLoadingScreen();
+                onReady();
             }
         );
     }
 
-    // マーカーから呼ばれる入口。
-    // 黒画面へフェードしてからマップを切り替え、
-    // spawnX, spawnZ, spawnGroundY で指定した位置に
-    // プレイヤーを出現させる（省略時は原点）。
-    function triggerBgti2Swap(
+    // ステージ1 → ステージ2
+    function goToStage2(
         spawnX,
         spawnZ,
         spawnGroundY
     ) {
 
-        if (bgti2Loaded) {
-            return;
-        }
+        if (currentStage !== 1) return;
 
-        bgti2Loaded = true;
-
-        const resolvedSpawnX =
-            (typeof spawnX === 'number')
-                ? spawnX
-                : defaultBgti2SpawnX;
-
-        const resolvedSpawnZ =
-            (typeof spawnZ === 'number')
-                ? spawnZ
-                : defaultBgti2SpawnZ;
-
-        const resolvedSpawnGroundY =
-            (typeof spawnGroundY === 'number')
-                ? spawnGroundY
-                : defaultBgti2SpawnGroundY;
+        // 読み込み中も含めて多重発火を防ぐ
+        currentStage = 2;
 
         showBlackLoadingScreen();
 
         setTimeout(
             () => {
-                loadBgti2AndReplaceBgti1(
-                    resolvedSpawnX,
-                    resolvedSpawnZ,
-                    resolvedSpawnGroundY
+
+                ensureBgti2Loaded(
+                    function () {
+
+                        setBgSceneVisible(
+                            bgti1Scene,
+                            false
+                        );
+
+                        setBgSceneVisible(
+                            bgti2Scene,
+                            true
+                        );
+
+                        applyStageLightSettings(
+                            stage2LightSettings
+                        );
+
+                        clearFloatingMarkers();
+                        createStage2Markers();
+
+                        movePlayerTo(
+                            (typeof spawnX === 'number') ? spawnX : 0,
+                            (typeof spawnZ === 'number') ? spawnZ : 0,
+                            (typeof spawnGroundY === 'number') ? spawnGroundY : 0
+                        );
+
+                        hideBlackLoadingScreen();
+                    }
                 );
             },
             blackLoadingFadeDurationMs
         );
     }
 
+    // ステージ2 → ステージ1
+    function goToStage1(
+        spawnX,
+        spawnZ,
+        spawnGroundY
+    ) {
 
-    createFloatingTriangleMarker(
-        -7.2,
-        3.8,
-        0,
-        1.0
-    );
+        if (currentStage !== 2) return;
 
-    createFloatingTriangleMarker(
-        0,
-        12.9,
-        0,
-        1.0
-    );
+        currentStage = 1;
 
-    createFloatingTriangleMarker(
-        6.9,
-        6.5,
-        0,
-        1.0
-    );
+        showBlackLoadingScreen();
 
-    createFloatingTriangleMarker(
-        -6.8,
-        13.1,
-        8.3,
-        1.0,
-        defaultInteractRadius,
-        defaultInteractText,
-        function () {
-            triggerBgti2Swap(0, 0, 0);
-        }
-    );
+        setTimeout(
+            () => {
+
+                setBgSceneVisible(
+                    bgti2Scene,
+                    false
+                );
+
+                setBgSceneVisible(
+                    bgti1Scene,
+                    true
+                );
+
+                applyStageLightSettings(
+                    stage1LightSettings
+                );
+
+                clearFloatingMarkers();
+                createStage1Markers();
+
+                movePlayerTo(
+                    (typeof spawnX === 'number') ? spawnX : -6.8,
+                    (typeof spawnZ === 'number') ? spawnZ : 13.1,
+                    (typeof spawnGroundY === 'number') ? spawnGroundY : 8.3
+                );
+
+                hideBlackLoadingScreen();
+            },
+            blackLoadingFadeDurationMs
+        );
+    }
+
+    createStage1Markers();
 
 
     // ============================================================
