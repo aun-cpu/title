@@ -493,7 +493,7 @@
 
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.55;
+    renderer.toneMappingExposure = 0.65;
 
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -729,18 +729,20 @@
     // ライト
     // ============================================================
 
+    // 太陽のように遠くから差す、曇り空のような
+    // 弱く灰色がかった光にする
     const ambientLight =
         new THREE.AmbientLight(
-            0xffffff,
-            0.12
+            0xc9cdd1,
+            0.32
         );
 
     scene.add(ambientLight);
 
     const dirLight =
         new THREE.DirectionalLight(
-            0xffffff,
-            1.1
+            0xb8bcc0,
+            0.5
         );
 
     dirLight.position.set(
@@ -769,8 +771,8 @@
 
     const fillLight =
         new THREE.DirectionalLight(
-            0xffffff,
-            0.4
+            0xb8bcc0,
+            0.18
         );
 
     fillLight.position.set(
@@ -3360,17 +3362,17 @@
     // ============================================================
 
     const stage1LightSettings = {
-        ambient: 0.12,
-        dir: 1.1,
-        fill: 0.4,
-        exposure: 0.55
+        ambient: 0.32,
+        dir: 0.5,
+        fill: 0.18,
+        exposure: 0.65
     };
 
     const stage2LightSettings = {
-        ambient: 0.12,
-        dir: 1.1,
-        fill: 0.4,
-        exposure: 0.55
+        ambient: 0.32,
+        dir: 0.5,
+        fill: 0.18,
+        exposure: 0.65
     };
 
     function applyStageLightSettings(
