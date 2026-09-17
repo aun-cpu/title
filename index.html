@@ -186,6 +186,45 @@
         0%, 49% { opacity: 1; }
         50%, 100% { opacity: 0.35; }
     }
+
+    #objective-big {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #ffffff;
+        font-family: 'Press Start 2P', 'MS Gothic', monospace;
+        font-size: clamp(22px, 6vw, 60px);
+        letter-spacing: 0.08em;
+        text-shadow: 4px 4px 0 #000;
+        z-index: 40;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.4s ease;
+        text-align: center;
+        white-space: nowrap;
+    }
+    #objective-big.is-visible {
+        opacity: 1;
+    }
+
+    #objective-small {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        color: #ffffff;
+        font-family: 'Press Start 2P', 'MS Gothic', monospace;
+        font-size: 14px;
+        letter-spacing: 0.05em;
+        text-shadow: 2px 2px 0 #000;
+        z-index: 40;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.4s ease;
+    }
+    #objective-small.is-visible {
+        opacity: 1;
+    }
 </style>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -223,6 +262,9 @@
             <div id="intro-log"></div>
         </div>
     </div>
+
+    <div id="objective-big"></div>
+    <div id="objective-small"></div>
 </div>
 
 <script>
@@ -2591,6 +2633,115 @@
 
             setAction('idle');
             updateCameraPosition();
+
+            // 操作可能になったタイミングで目標を表示する
+            showObjective('investigate');
+        }
+    }
+
+
+    // ============================================================
+    // 目標表示システム（再利用可能）
+    // 大きく表示 → 一定時間後に消えて左上に小さく表示され続ける
+    // ============================================================
+
+    const objectiveBigElement =
+        document.getElementById('objective-big');
+
+    const objectiveSmallElement =
+        document.getElementById('objective-small');
+
+    // 大表示を見せておく時間（秒）
+    const objectiveBigDisplayDuration = 2.5;
+
+    // フェードにかける時間（秒）。CSSのtransitionと合わせる
+    const objectiveFadeDuration = 0.4;
+
+    let objectiveTimeoutIds = [];
+
+    function clearObjectiveTimeouts() {
+
+        objectiveTimeoutIds.forEach(
+            (id) => clearTimeout(id)
+        );
+
+        objectiveTimeoutIds = [];
+    }
+
+    // text: 表示する目標名（例: 'investigate'）
+    // 大きく中央に表示した後、フェードアウトし、
+    // 左上に「>text」の形で小さく表示され続ける。
+    function showObjective(text) {
+
+        if (
+            !objectiveBigElement ||
+            !objectiveSmallElement
+        ) {
+            return;
+        }
+
+        clearObjectiveTimeouts();
+
+        // 小表示は一旦隠しておく
+        objectiveSmallElement.classList.remove(
+            'is-visible'
+        );
+
+        objectiveBigElement.textContent = text;
+
+        objectiveBigElement.classList.add(
+            'is-visible'
+        );
+
+        const hideBigTimeoutId = setTimeout(
+            () => {
+
+                objectiveBigElement.classList.remove(
+                    'is-visible'
+                );
+
+                const showSmallTimeoutId = setTimeout(
+                    () => {
+
+                        objectiveSmallElement.textContent =
+                            '>' + text;
+
+                        objectiveSmallElement.classList.add(
+                            'is-visible'
+                        );
+
+                    },
+                    objectiveFadeDuration * 1000
+                );
+
+                objectiveTimeoutIds.push(
+                    showSmallTimeoutId
+                );
+
+            },
+            objectiveBigDisplayDuration * 1000
+        );
+
+        objectiveTimeoutIds.push(
+            hideBigTimeoutId
+        );
+    }
+
+    // 大表示・小表示の両方を即座に消す
+    function hideObjective() {
+
+        clearObjectiveTimeouts();
+
+        if (objectiveBigElement) {
+            objectiveBigElement.classList.remove(
+                'is-visible'
+            );
+        }
+
+        if (objectiveSmallElement) {
+            objectiveSmallElement.classList.remove(
+                'is-visible'
+            );
         }
     }
 
