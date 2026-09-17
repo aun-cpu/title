@@ -241,6 +241,24 @@
         text-align: right;
         white-space: pre;
     }
+
+    .interact-label {
+        position: absolute;
+        color: #ffffff;
+        font-family: 'Press Start 2P', 'MS Gothic', monospace;
+        font-size: 12px;
+        letter-spacing: 0.05em;
+        text-shadow: 2px 2px 0 #000;
+        z-index: 35;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        white-space: nowrap;
+        transform: translate(0, -50%);
+    }
+    .interact-label.is-visible {
+        opacity: 1;
+    }
 </style>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2790,19 +2808,34 @@
 
     // ============================================================
     // 浮遊マーカー（再利用可能）
-    // 指定した座標の少し上に、白い逆三角形を浮かせて表示する
+    // 指定した座標の少し上に、白い逆三角形を浮かせて表示する。
+    // プレイヤーが指定半径内に入ると、マーカーの横に
+    // 「interact」などのラベルを表示する。
     // ============================================================
 
     const floatingMarkers = [];
 
+    const appStageElement =
+        document.getElementById('app-stage');
+
+    // ラベルをマーカーからどれだけ右にずらすか（px）
+    const interactLabelOffsetX = 22;
+
+    const defaultInteractRadius = 2;
+    const defaultInteractText = 'interact';
+
     // x, z: 配置するワールド座標
     // groundY: 基準となる高さ（地面の高さなど）
     // heightAboveGround: groundYからどれだけ浮かせるか
+    // interactRadius: このマーカーに近づいたと判定する半径（省略時2）
+    // interactText: 近づいたときに表示する文字列（省略時'interact'）
     function createFloatingTriangleMarker(
         x,
         z,
         groundY,
-        heightAboveGround
+        heightAboveGround,
+        interactRadius,
+        interactText
     ) {
 
         const markerGeometry =
@@ -2839,15 +2872,100 @@
 
         marker.userData.baseY = baseY;
 
+        // 距離判定は地面座標（浮遊オフセットを含まない点）で行う
+        marker.userData.anchor =
+            new THREE.Vector3(x, groundY, z);
+
+        marker.userData.interactRadius =
+            (typeof interactRadius === 'number')
+                ? interactRadius
+                : defaultInteractRadius;
+
+        marker.userData.interactText =
+            interactText || defaultInteractText;
+
         scene.add(marker);
+
+        // 近づいたときに出す「interact」ラベルを用意しておく
+        const label =
+            document.createElement('div');
+
+        label.className = 'interact-label';
+        label.textContent =
+            marker.userData.interactText;
+
+        if (appStageElement) {
+            appStageElement.appendChild(label);
+        }
+
+        marker.userData.label = label;
 
         floatingMarkers.push(marker);
 
         return marker;
     }
 
+    // ワールド座標をapp-stage内のロジカルなスクリーン座標に変換する
+    // （画面回転・ピクセル化に関わらず、joystick等と同じ座標系になる）
+    function worldToLogicalScreen(worldPosition) {
+
+        const ndc =
+            worldPosition.clone().project(camera);
+
+        const logicalWidth = getLogicalWidth();
+        const logicalHeight = getLogicalHeight();
+
+        return {
+            x: (ndc.x + 1) / 2 * logicalWidth,
+            y: (1 - (ndc.y + 1) / 2) * logicalHeight,
+            behindCamera: ndc.z > 1
+        };
+    }
+
+    // プレイヤーとの距離を見て、interactラベルの
+    // 表示・非表示と画面上の位置を更新する
+    function updateMarkerInteractLabel(marker) {
+
+        const label = marker.userData.label;
+
+        if (!label) return;
+
+        if (!targetModel) {
+            label.classList.remove('is-visible');
+            return;
+        }
+
+        const distance =
+            targetModel.position.distanceTo(
+                marker.userData.anchor
+            );
+
+        if (distance > marker.userData.interactRadius) {
+            label.classList.remove('is-visible');
+            return;
+        }
+
+        const screenPos =
+            worldToLogicalScreen(
+                marker.position
+            );
+
+        if (screenPos.behindCamera) {
+            label.classList.remove('is-visible');
+            return;
+        }
+
+        label.style.left =
+            (screenPos.x + interactLabelOffsetX) + 'px';
+
+        label.style.top =
+            screenPos.y + 'px';
+
+        label.classList.add('is-visible');
+    }
+
     // 浮遊マーカーをふわふわ上下に揺らしながら
-    // ゆっくり回転させる
+    // ゆっくり回転させ、interactラベルも更新する
     function updateFloatingMarkers(
         elapsedSeconds
     ) {
@@ -2868,6 +2986,10 @@
                 ) * 0.08;
 
             marker.rotation.y += 0.02;
+
+            updateMarkerInteractLabel(
+                marker
+            );
         }
     }
 
@@ -2875,6 +2997,27 @@
         -7.2,
         3.8,
         0,
+        1.0
+    );
+
+    createFloatingTriangleMarker(
+        0,
+        12.9,
+        0,
+        1.0
+    );
+
+    createFloatingTriangleMarker(
+        6.9,
+        6.5,
+        0,
+        1.0
+    );
+
+    createFloatingTriangleMarker(
+        -6.8,
+        13.1,
+        8.3,
         1.0
     );
 
