@@ -2525,6 +2525,13 @@
             introProcessingElement.style.display = 'none';
             introLogElement.style.display = 'block';
             introLogElement.textContent = '';
+
+            // 文が出始めるタイミングでidleに切り替え、catを非表示にする。
+            setAction('idle');
+
+            if (catModel) {
+                catModel.visible = false;
+            }
         }
 
         const commandElapsed =
@@ -2758,16 +2765,4 @@
 </script>
 
 </body>
-</html>const wakeSeElement = document.getElementById('wake-se');
-
-function playWake() {
-    if (!wakeSeElement) return;
-    wakeSeElement.pause();
-    wakeSeElement.currentTime = 0;
-    wakeSeElement.loop = false;
-    wakeSeElement.volume = 1.0;
-    const promise = wakeSeElement.play();
-    if (promise && typeof promise.catch === 'function') promise.catch(() => {});
-}
-
-
+</html>
