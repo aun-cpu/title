@@ -493,7 +493,7 @@
 
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.65;
+    renderer.toneMappingExposure = 0.95;
 
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -733,16 +733,16 @@
     // 弱く灰色がかった光にする
     const ambientLight =
         new THREE.AmbientLight(
-            0xc9cdd1,
-            0.32
+            0xffffff,
+            0.3
         );
 
     scene.add(ambientLight);
 
     const dirLight =
         new THREE.DirectionalLight(
-            0xb8bcc0,
-            0.5
+            0xffffff,
+            2.6
         );
 
     dirLight.position.set(
@@ -771,8 +771,8 @@
 
     const fillLight =
         new THREE.DirectionalLight(
-            0xb8bcc0,
-            0.18
+            0xffffff,
+            1.0
         );
 
     fillLight.position.set(
@@ -1279,19 +1279,14 @@
                             true;
                     }
 
-                    return new THREE.MeshStandardMaterial({
+                    return new THREE.MeshBasicMaterial({
                         color: 0xffffff,
                         wireframe: false,
                         transparent: true,
                         opacity: 0.99,
                         map: material.map || null,
                         vertexColors:
-                            material.vertexColors,
-                        roughness: 1.0,
-                        metalness: 0.0,
-                        envMapIntensity: 0.15,
-                        side: THREE.DoubleSide,
-                        shadowSide: THREE.DoubleSide
+                            material.vertexColors
                     });
 
                 });
@@ -1302,7 +1297,6 @@
                     : newMaterials[0];
 
             child.receiveShadow = true;
-            child.castShadow = true;
 
             child.frustumCulled = true;
 
@@ -3364,17 +3358,17 @@
     // ============================================================
 
     const stage1LightSettings = {
-        ambient: 0.32,
-        dir: 0.5,
-        fill: 0.18,
-        exposure: 0.65
+        ambient: 0.3,
+        dir: 2.6,
+        fill: 1.0,
+        exposure: 0.95
     };
 
     const stage2LightSettings = {
-        ambient: 0.32,
-        dir: 0.5,
-        fill: 0.18,
-        exposure: 0.65
+        ambient: 0.3,
+        dir: 2.6,
+        fill: 1.0,
+        exposure: 0.95
     };
 
     function applyStageLightSettings(
