@@ -2789,6 +2789,97 @@
 
 
     // ============================================================
+    // 浮遊マーカー（再利用可能）
+    // 指定した座標の少し上に、白い逆三角形を浮かせて表示する
+    // ============================================================
+
+    const floatingMarkers = [];
+
+    // x, z: 配置するワールド座標
+    // groundY: 基準となる高さ（地面の高さなど）
+    // heightAboveGround: groundYからどれだけ浮かせるか
+    function createFloatingTriangleMarker(
+        x,
+        z,
+        groundY,
+        heightAboveGround
+    ) {
+
+        const markerGeometry =
+            new THREE.ConeGeometry(
+                0.15,
+                0.28,
+                3
+            );
+
+        // 先端を下向きにして逆三角形にする
+        markerGeometry.rotateX(
+            Math.PI
+        );
+
+        const markerMaterial =
+            new THREE.MeshBasicMaterial({
+                color: 0xffffff
+            });
+
+        const marker =
+            new THREE.Mesh(
+                markerGeometry,
+                markerMaterial
+            );
+
+        const baseY =
+            groundY + heightAboveGround;
+
+        marker.position.set(
+            x,
+            baseY,
+            z
+        );
+
+        marker.userData.baseY = baseY;
+
+        scene.add(marker);
+
+        floatingMarkers.push(marker);
+
+        return marker;
+    }
+
+    // 浮遊マーカーをふわふわ上下に揺らしながら
+    // ゆっくり回転させる
+    function updateFloatingMarkers(
+        elapsedSeconds
+    ) {
+
+        for (
+            let i = 0;
+            i < floatingMarkers.length;
+            i++
+        ) {
+
+            const marker =
+                floatingMarkers[i];
+
+            marker.position.y =
+                marker.userData.baseY +
+                Math.sin(
+                    elapsedSeconds * 2.0
+                ) * 0.08;
+
+            marker.rotation.y += 0.02;
+        }
+    }
+
+    createFloatingTriangleMarker(
+        -7.2,
+        3.8,
+        0,
+        1.0
+    );
+
+
+    // ============================================================
     // メインループ
     // ============================================================
 
@@ -2838,6 +2929,10 @@
         updateBgFrustumCulling();
 
         updateCtCoordsDisplay();
+
+        updateFloatingMarkers(
+            performance.now() / 1000
+        );
 
 
         renderer.setRenderTarget(null);
