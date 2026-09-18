@@ -883,6 +883,9 @@
     // ステージ2に配置するbgtido.glb
     let bgtidoScene = null;
 
+    // ステージ3の背景(bgti3.glb)
+    let bgti3Scene = null;
+
     let mixer = null;
     let catMixer = null;
 
@@ -3388,6 +3391,13 @@
         exposure: 0.95
     };
 
+    const stage3LightSettings = {
+        ambient: 0.3,
+        dir: 2.6,
+        fill: 1.0,
+        exposure: 0.95
+    };
+
     function applyStageLightSettings(
         settings
     ) {
@@ -3497,12 +3507,35 @@
             }
         );
 
-        // bgtido.glb(-19.9, 0, 75.7)の正面(-x方向)の手前に置くマーカー
+        // bgtido.glb(-19.6, 0, 75.7)の正面(-x方向)の手前に置くマーカー
+        // ここからbgti3.glb(ステージ3)へ移動する
         createFloatingTriangleMarker(
-            -21.9,
+            -21.6,
             75.7,
             0,
-            1.0
+            1.0,
+            defaultInteractRadius,
+            'go downstairs',
+            function () {
+                goToStage3(-21.6, 75.7, 0);
+            }
+        );
+    }
+
+    // ステージ3のマーカー構成
+    function createStage3Markers() {
+
+        // bgti3.glb側の入り口マーカー(ステージ2に戻る)
+        createFloatingTriangleMarker(
+            -21.6,
+            75.7,
+            0,
+            1.0,
+            defaultInteractRadius,
+            'go upstairs',
+            function () {
+                goToStage2(-21.6, 75.7, 0);
+            }
         );
     }
 
@@ -3633,13 +3666,71 @@
         );
     }
 
+    // bgti3.glbをまだ読み込んでいなければ読み込む
+    // （2回目以降は読み込み済みのものをそのまま使い回す）
+    function ensureBgti3Loaded(
+        onReady
+    ) {
+
+        if (bgti3Scene) {
+            onReady();
+            return;
+        }
+
+        loader.load(
+            './bgti3.glb',
+
+            function (gltf) {
+
+                try {
+
+                    const partScene =
+                        gltf.scene;
+
+                    partScene.scale.set(
+                        1,
+                        1,
+                        1
+                    );
+
+                    setupBgMaterials(
+                        partScene
+                    );
+
+                    bgti3Scene = partScene;
+
+                } catch (setupError) {
+
+                    console.error(
+                        'bgti3.glb のセットアップエラー:',
+                        setupError
+                    );
+                }
+
+                onReady();
+            },
+
+            undefined,
+
+            function (error) {
+
+                console.error(
+                    'bgti3.glb の読み込みエラー:',
+                    error
+                );
+
+                onReady();
+            }
+        );
+    }
+
     function goToStage2(
         spawnX,
         spawnZ,
         spawnGroundY
     ) {
 
-        if (currentStage !== 1) return;
+        if (currentStage !== 1 && currentStage !== 3) return;
 
         // èª­ã¿è¾¼ã¿ä¸­ãå«ãã¦å¤éçºç«ãé²ã
         currentStage = 2;
@@ -3657,6 +3748,11 @@
 
                                 setBgSceneVisible(
                                     bgti1Scene,
+                                    false
+                                );
+
+                                setBgSceneVisible(
+                                    bgti3Scene,
                                     false
                                 );
 
@@ -3694,6 +3790,61 @@
     }
 
     // ã¹ãã¼ã¸2 â ã¹ãã¼ã¸1
+    // ステージ2 → ステージ3
+    function goToStage3(
+        spawnX,
+        spawnZ,
+        spawnGroundY
+    ) {
+
+        if (currentStage !== 2) return;
+
+        currentStage = 3;
+
+        showBlackLoadingScreen();
+
+        setTimeout(
+            () => {
+
+                ensureBgti3Loaded(
+                    function () {
+
+                        setBgSceneVisible(
+                            bgti2Scene,
+                            false
+                        );
+
+                        setBgSceneVisible(
+                            bgtidoScene,
+                            false
+                        );
+
+                        setBgSceneVisible(
+                            bgti3Scene,
+                            true
+                        );
+
+                        applyStageLightSettings(
+                            stage3LightSettings
+                        );
+
+                        clearFloatingMarkers();
+                        createStage3Markers();
+
+                        movePlayerTo(
+                            (typeof spawnX === 'number') ? spawnX : 0,
+                            (typeof spawnZ === 'number') ? spawnZ : 0,
+                            (typeof spawnGroundY === 'number') ? spawnGroundY : 0
+                        );
+
+                        hideBlackLoadingScreen();
+                    }
+                );
+            },
+            blackLoadingFadeDurationMs
+        );
+    }
+
     function goToStage1(
         spawnX,
         spawnZ,
