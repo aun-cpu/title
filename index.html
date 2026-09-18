@@ -3497,11 +3497,10 @@
             }
         );
 
-        // bgtido.glb(-19.9, 0, 75.7)の手前に置くマーカー
-        // ※「手前」の向きが実際のモデルの向きと違う場合はzの値を調整してください
+        // bgtido.glb(-19.9, 0, 75.7)の正面(-x方向)の手前に置くマーカー
         createFloatingTriangleMarker(
-            -19.9,
-            73.7,
+            -21.9,
+            75.7,
             0,
             1.0
         );
@@ -3598,6 +3597,10 @@
                         0,
                         75.7
                     );
+
+                    // 90度回転させて、xが減る方向(-x方向)を正面にする
+                    partScene.rotation.y =
+                        -Math.PI / 2;
 
                     setupBgMaterials(
                         partScene
