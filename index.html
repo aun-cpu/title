@@ -880,6 +880,9 @@
     let bgti1Scene = null;
     let bgti2Scene = null;
 
+    // ステージ2に配置するbgtido.glb
+    let bgtidoScene = null;
+
     let mixer = null;
     let catMixer = null;
 
@@ -3493,6 +3496,15 @@
                 );
             }
         );
+
+        // bgtido.glb(-19.9, 0, 75.7)の手前に置くマーカー
+        // ※「手前」の向きが実際のモデルの向きと違う場合はzの値を調整してください
+        createFloatingTriangleMarker(
+            -19.9,
+            73.7,
+            0,
+            1.0
+        );
     }
 
     // bgti2.glbãã¾ã èª­ã¿è¾¼ãã§ããªããã°èª­ã¿è¾¼ã
@@ -3554,6 +3566,70 @@
     }
 
     // ã¹ãã¼ã¸1 â ã¹ãã¼ã¸2
+    // bgtido.glbをまだ読み込んでいなければ読み込む
+    // （2回目以降は読み込み済みのものをそのまま使い回す）
+    function ensureBgtidoLoaded(
+        onReady
+    ) {
+
+        if (bgtidoScene) {
+            onReady();
+            return;
+        }
+
+        loader.load(
+            './bgtido.glb',
+
+            function (gltf) {
+
+                try {
+
+                    const partScene =
+                        gltf.scene;
+
+                    partScene.scale.set(
+                        1,
+                        1,
+                        1
+                    );
+
+                    partScene.position.set(
+                        -19.9,
+                        0,
+                        75.7
+                    );
+
+                    setupBgMaterials(
+                        partScene
+                    );
+
+                    bgtidoScene = partScene;
+
+                } catch (setupError) {
+
+                    console.error(
+                        'bgtido.glb のセットアップエラー:',
+                        setupError
+                    );
+                }
+
+                onReady();
+            },
+
+            undefined,
+
+            function (error) {
+
+                console.error(
+                    'bgtido.glb の読み込みエラー:',
+                    error
+                );
+
+                onReady();
+            }
+        );
+    }
+
     function goToStage2(
         spawnX,
         spawnZ,
@@ -3573,30 +3649,40 @@
                 ensureBgti2Loaded(
                     function () {
 
-                        setBgSceneVisible(
-                            bgti1Scene,
-                            false
+                        ensureBgtidoLoaded(
+                            function () {
+
+                                setBgSceneVisible(
+                                    bgti1Scene,
+                                    false
+                                );
+
+                                setBgSceneVisible(
+                                    bgti2Scene,
+                                    true
+                                );
+
+                                setBgSceneVisible(
+                                    bgtidoScene,
+                                    true
+                                );
+
+                                applyStageLightSettings(
+                                    stage2LightSettings
+                                );
+
+                                clearFloatingMarkers();
+                                createStage2Markers();
+
+                                movePlayerTo(
+                                    (typeof spawnX === 'number') ? spawnX : 0,
+                                    (typeof spawnZ === 'number') ? spawnZ : 0,
+                                    (typeof spawnGroundY === 'number') ? spawnGroundY : 0
+                                );
+
+                                hideBlackLoadingScreen();
+                            }
                         );
-
-                        setBgSceneVisible(
-                            bgti2Scene,
-                            true
-                        );
-
-                        applyStageLightSettings(
-                            stage2LightSettings
-                        );
-
-                        clearFloatingMarkers();
-                        createStage2Markers();
-
-                        movePlayerTo(
-                            (typeof spawnX === 'number') ? spawnX : 0,
-                            (typeof spawnZ === 'number') ? spawnZ : 0,
-                            (typeof spawnGroundY === 'number') ? spawnGroundY : 0
-                        );
-
-                        hideBlackLoadingScreen();
                     }
                 );
             },
@@ -3622,6 +3708,11 @@
 
                 setBgSceneVisible(
                     bgti2Scene,
+                    false
+                );
+
+                setBgSceneVisible(
+                    bgtidoScene,
                     false
                 );
 
